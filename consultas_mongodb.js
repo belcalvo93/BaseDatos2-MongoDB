@@ -53,6 +53,13 @@
 // Nota: pedido no tiene columna "estado"; se usa forma_pago
 // (EFECTIVO / TARJETA / TRANSFERENCIA) como campo equivalente (decisión de
 // diseño del equipo, documentada en modelo_documental.md).
+//
+// Corrección de codificación: en bd2_tp3 el apellido del cliente 1 está
+// guardado como "GutiÃ©rrez" (la "é" en UTF-8 se leyó como Latin-1 al cargar).
+// En la migración se corrigió a "Gutiérrez" con
+//   convert_from(convert_to(apellido, 'LATIN1'), 'UTF8')
+// aplicado solo a textos con "Ã". No cambia IDs, cantidades ni importes.
+// bd2_tp3 no se modificó.
 // ============================================================================
 
 // ----------------------------------------------------------------------------
@@ -123,7 +130,7 @@ db.pedidos.insertMany([
     _id: 1,
     fecha: ISODate("2026-08-01T13:15:00.000Z"),
     forma_pago: "EFECTIVO",
-    cliente: { id_cliente: 1, nombre: "Ana GutiÃ©rrez", email: "ana.gutierrez@example.com" },
+    cliente: { id_cliente: 1, nombre: "Ana Gutiérrez", email: "ana.gutierrez@example.com" },
     lineas: [
       { id_producto: 1, nombre: "Pan de campo 1kg", cantidad: 2, precio_unitario: NumberDecimal("2200.00") },
       { id_producto: 5, nombre: "Leche entera 1L", cantidad: 1, precio_unitario: NumberDecimal("1650.00") },
@@ -150,7 +157,7 @@ db.pedidos.insertMany([
     _id: 3,
     fecha: ISODate("2026-08-07T12:05:00.000Z"),
     forma_pago: "TRANSFERENCIA",
-    cliente: { id_cliente: 1, nombre: "Ana GutiÃ©rrez", email: "ana.gutierrez@example.com" },
+    cliente: { id_cliente: 1, nombre: "Ana Gutiérrez", email: "ana.gutierrez@example.com" },
     lineas: [
       { id_producto: 2, nombre: "Medialunas x6", cantidad: 2, precio_unitario: NumberDecimal("3200.00") },
       { id_producto: 6, nombre: "Queso cremoso 500g", cantidad: 1, precio_unitario: NumberDecimal("7600.00") },
