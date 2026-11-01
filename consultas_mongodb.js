@@ -316,3 +316,59 @@ try {
 } catch (e) {
   print("OK R2: rechazado el pedido con producto repetido (código " + e.code + ": " + e.message + ")");
 }
+
+// ============================================================================
+// CONSIGNA 4 — Consultas en MongoDB (Belén Calvo)
+// ----------------------------------------------------------------------------
+// Nota sobre eliminado = false (criterio de clase): ninguna de las tablas de
+// origen (pedido, detalle_pedido, cliente, producto) tiene columna "eliminado"
+// en bd2_tp3; solo existe en "usuario", que no interviene. No se agrega ese
+// campo al documento para no inventar datos que no están en el origen, por lo
+// que el filtro no se aplica. producto.activo es una baja lógica del catálogo
+// actual, no de la venta: filtrar por él alteraría el historial de pedidos.
+// "estado" del pedido = forma_pago (ver modelo_documental.md).
+// ============================================================================
+
+// a) Todos los pedidos, con su identificador y estado (forma_pago).
+print("\n--- Consulta a) Todos los pedidos ---");
+db.pedidos.find({}, { _id: 1, forma_pago: 1 }).sort({ _id: 1 })
+  .forEach(d => print(d._id + " | " + d.forma_pago));
+print("Cantidad: " + db.pedidos.countDocuments({}));
+
+// b) Pedidos filtrados por un estado existente: forma_pago = "EFECTIVO".
+//    Se eligió EFECTIVO porque trae 3 de los 8 pedidos y excluye 5: el
+//    filtro demuestra algo (si trajera todos, no probaría nada).
+print("\n--- Consulta b) Pedidos con forma_pago = EFECTIVO ---");
+db.pedidos.find(
+  { forma_pago: "EFECTIVO" },
+  { _id: 1, fecha: 1, forma_pago: 1, total: 1 }
+).sort({ _id: 1 })
+  .forEach(d => print(d._id + " | " + d.fecha.toISOString() + " | " + d.forma_pago + " | " + d.total));
+print("Cantidad: " + db.pedidos.countDocuments({ forma_pago: "EFECTIVO" }));
+
+// c) Pedidos que contienen un producto determinado en el arreglo lineas:
+//    id_producto = 1 (Pan de campo 1kg). Se busca por id (estable) y no por
+//    nombre. "lineas.$" devuelve solo la línea que coincidió: permite ver el
+//    precio histórico congelado (R4) de ese producto en cada pedido.
+print("\n--- Consulta c) Pedidos que contienen id_producto = 1 ---");
+db.pedidos.find(
+  { "lineas.id_producto": 1 },
+  { _id: 1, forma_pago: 1, "lineas.$": 1 }
+).sort({ _id: 1 })
+  .forEach(d => print(d._id + " | " + d.forma_pago + " | " + d.lineas[0].nombre +
+                      " | cantidad=" + d.lineas[0].cantidad + " | precio_unitario=" + d.lineas[0].precio_unitario));
+print("Cantidad: " + db.pedidos.countDocuments({ "lineas.id_producto": 1 }));
+
+// d) Pedidos con total superior a un importe elegido, de mayor a menor.
+//    Umbral: $10.000, redondeo del promedio de los 8 pedidos migrados
+//    ($10.550,47). Divide el lote en 3 pedidos por encima (2, 3 y 4) y 5 por
+//    debajo; el pedido 1 ($9.987,91) queda apenas debajo, lo que prueba que la
+//    comparación con Decimal128 es exacta. Como total ya está guardado, alcanza
+//    con un find (sin aggregate).
+print("\n--- Consulta d) Pedidos con total > 10000 (desc) ---");
+db.pedidos.find(
+  { total: { $gt: NumberDecimal("10000") } },
+  { _id: 1, forma_pago: 1, total: 1 }
+).sort({ total: -1 })
+  .forEach(d => print(d._id + " | " + d.forma_pago + " | " + d.total));
+print("Cantidad: " + db.pedidos.countDocuments({ total: { $gt: NumberDecimal("10000") } }));
