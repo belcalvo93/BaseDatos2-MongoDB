@@ -1,0 +1,4 @@
+Índice creado: {"lineas.id_producto":1} unique=true
+Prueba 1: ACEPTADO -> el índice NO impide repetir el producto dentro del mismo pedido
+Prueba 2: RECHAZADO -> el índice impide que otro pedido compre el mismo producto (código 11000)
+Colección de prueba eliminada.

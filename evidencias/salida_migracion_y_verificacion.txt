@@ -1,0 +1,11 @@
+Documentos en foodstore.pedidos: 8
+1 | EFECTIVO | lineas=5 | total=9987.91 | suma_lineas=9987.91 | coincide=true
+2 | TARJETA | lineas=6 | total=19036.35 | suma_lineas=19036.35 | coincide=true
+3 | TRANSFERENCIA | lineas=6 | total=15453.62 | suma_lineas=15453.62 | coincide=true
+4 | TARJETA | lineas=5 | total=16658.04 | suma_lineas=16658.04 | coincide=true
+5 | EFECTIVO | lineas=3 | total=4293.65 | suma_lineas=4293.65 | coincide=true
+45018 | EFECTIVO | lineas=1 | total=1931.96 | suma_lineas=1931.96 | coincide=true
+59428 | TRANSFERENCIA | lineas=2 | total=7552.58 | suma_lineas=7552.58 | coincide=true
+74364 | TARJETA | lineas=2 | total=9489.63 | suma_lineas=9489.63 | coincide=true
+Pedidos con total distinto de la suma de líneas: 0 (esperado: 0)
+OK R2: rechazado el pedido con producto repetido (código 121: Document failed validation)
