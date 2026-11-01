@@ -144,7 +144,7 @@
         <div class='inst'>UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
         <div class='tp-title'>Trabajo Práctico N.º 7: Migración a MongoDB (Food Store)</div>
       </div>
-      <div style='text-align: right; font-size: 7pt; color: #64748b;'>Ciclo Lectivo 2026 · Comisión 3</div>
+      <div style='text-align: right; font-size: 7pt; color: #64748b;'>Ciclo Lectivo 2026 · Comisión 2PRO3</div>
     </div>
 
     <div class='meta-bar'>
@@ -314,11 +314,11 @@ db.createCollection("pedidos", { validationLevel: "strict", validationAction: "e
     <ul>
       <li><b>Cliente (objeto embebido):</b> Relación 1:1. El pedido requiere disponer inmediatamente del nombre y correo del comprador para visualización y emisión de comprobantes. Se embeben solo los atributos estables; el maestro de clientes continúa residiendo en su tabla relacional.</li>
       <li><b>Líneas (arreglo de subdocumentos):</b> Las líneas poseen una relación de contención existencial con el pedido (en PostgreSQL tienen <code>ON DELETE CASCADE</code>) y carecen de sentido de forma autónoma. Al ser un número reducido (1 a 6 renglones), no existe riesgo de aproximarse al límite de 16 MB por documento BSON.</li>
-      <li><b>Rendimiento y Atomicidad:</b> Al embeber ambos elementos, un pedido completo se lee y se escribe en <b>una única operación de E/S atómica</b>, eliminando por completo los bloqueos distribuidos y los costosos <code>$lookup</code> en tiempo de ejecución.</li>
+      <li><b>Rendimiento y Atomicidad:</b> Al embeber ambos elementos, un pedido completo se lee y se escribe en <b>una única operación de E/S atómica</b>, sin necesidad de <code>$lookup</code>.</li>
     </ul>
 
     <div class='section-title'>4. Ejecución de Migración y Verificación de Integridad</div>
-    <p>Se ejecutó <code>insertMany()</code> migrando los 8 pedidos. La auditoría cruzada contra PostgreSQL arrojó coincidencia matemática absoluta:</p>
+    <p>Se ejecutó <code>insertMany()</code> migrando los 8 pedidos. La auditoría cruzada contra PostgreSQL arrojó coincidencia exacta en los 8 pedidos:</p>
     <div class='code-block'>// Salida de ejecución en mongosh (evidencias/salida_migracion_y_verificacion.txt):
 Documentos en foodstore.pedidos: 8
 1     | EFECTIVO      | lineas=5 | total=9987.91  | suma_lineas=9987.91  | coincide=true
@@ -517,7 +517,7 @@ ORDER BY p.id_pedido;</div>
     <div class='highlight-box'>
       <b>2. Eliminación de Joins y Complejidad de Consulta:</b><br>
       &bull; <i>En la consulta b):</i> PostgreSQL debe computar <code>SUM(cantidad * precio_unitario)</code> y ejecutar <code>GROUP BY</code> requiriendo un <code>INNER JOIN</code> entre <code>pedido</code> y <code>detalle_pedido</code>. En MongoDB, al tener <code>total</code> persistido como redundancia auditada, se lee directamente del documento en un solo acceso.<br>
-      &bull; <i>En la consulta c):</i> PostgreSQL requiere obligatoriamente dos <code>INNER JOIN</code> uniendo 3 tablas (<code>pedido</code>, <code>detalle_pedido</code> y <code>producto</code>) para asociar el nombre y el ítem. En MongoDB, alcanza con un <code>find({"lineas.id_producto": 1})</code> directo, aprovechando la indexación del arreglo embebido.
+      &bull; <i>En la consulta c):</i> PostgreSQL requiere obligatoriamente dos <code>INNER JOIN</code> uniendo 3 tablas (<code>pedido</code>, <code>detalle_pedido</code> y <code>producto</code>) para asociar el nombre y el ítem. En MongoDB, alcanza con un <code>find({"lineas.id_producto": 1})</code> directo, porque las líneas están embebidas en el pedido.
     </div>
 
     <div class='highlight-box'>
