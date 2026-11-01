@@ -99,13 +99,16 @@ A continuación se analizan críticamente dos afirmaciones específicas brindada
 
 ---
 
-## 5. Consigna 7: Conclusión Técnica y Justificación de la Migración
+## 5. Consigna 7: Conclusión
 
-**Límite:** Hasta 200 palabras | **Criterios técnicos:** Localidad de datos / Patrón de acceso e Integridad histórica / Redundancia controlada.
+**Criterios técnicos:** patrón de acceso / localidad de datos e integridad.
 
-> La migración del módulo de pedidos de Food Store desde PostgreSQL a MongoDB demuestra los beneficios y desafíos del modelado documental.
+> Para Food Store conviene combinar ambos motores: mantener PostgreSQL como sistema de registro y usar MongoDB para consultar pedidos completos.
 >
-> El primer criterio técnico es la **localidad de datos y el patrón de acceso**: embeber cliente y líneas en un único documento permite recuperar pedidos completos en una sola operación sin operaciones de JOIN ni latencia de red adicional, optimizando la lectura transaccional frecuente. Además, la baja cardinalidad del detalle (1 a 6 renglones) elimina el riesgo de saturar el límite de 16 MB de BSON.
+> El primer criterio es el patrón de acceso y la localidad de datos. La operación más frecuente es leer el pedido completo. Con cliente y líneas embebidos, MongoDB lo devuelve en una sola lectura, mientras que PostgreSQL necesita dos JOIN entre tres tablas para la consulta c). Como cada pedido tiene pocas líneas (1 a 6), el documento no crece sin límite.
 >
-> El segundo criterio técnico es la **integridad histórica frente a la redundancia controlada**: desnormalizar el nombre y congelar el `precio_unitario` (regla R4) garantiza que los comprobantes reflejen el valor exacto de la venta, aislándolo de fluctuaciones del catálogo maestro. Aunque almacenar el total precalculado introduce redundancia en un motor sin transacciones relacionales nativas para estas tablas, validarlo con `Decimal128` y auditarlo mediante agregaciones ($total = \sum lineas$) asegura consistencia absoluta (0 descuadres). En contraposición, restricciones como la no repetición de ítems requirieron validadores de esquema ($expr con $setUnion), dado que los índices multikey no aplican a nivel intra-documento.
-*(Total: 181 palabras)*
+> El segundo criterio es la integridad. PostgreSQL garantiza de forma declarativa las claves foráneas, UNIQUE(id_pedido, id_producto) y los CHECK de cantidad y precio. En MongoDB hubo que reconstruir esas reglas con un validador ($jsonSchema y $setUnion), y el total guardado es una redundancia que la aplicación debe mantener y auditar (dio 0 descuadres). Catálogo, stock y clientes cambian seguido y se relacionan entre sí, algo que el modelo relacional resuelve mejor.
+>
+> Por eso no conviene reemplazar PostgreSQL: los pedidos se registran allí y se copian a MongoDB como documentos cerrados, con el precio histórico congelado (R4). Así se aprovecha la lectura rápida sin perder las garantías del motor relacional.
+
+*(191 palabras)*

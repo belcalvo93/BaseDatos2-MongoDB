@@ -280,57 +280,20 @@
     <p>Para asegurar integridad a nivel de base de datos sin depender exclusivamente del cliente, la colección <code>foodstore.pedidos</code> se creó con un validador compuesto que combina <code>$jsonSchema</code> y expresiones lógicas <code>$expr</code> (validationLevel: 'strict', validationAction: 'error'):</p>
 
     <div class='code-block'>db = db.getSiblingDB("foodstore");
-db.pedidos.drop();
-db.createCollection("pedidos", {
-  validator: {
-    $and: [
-      {
-        $jsonSchema: {
-          bsonType: "object",
-          required: ["_id", "fecha", "forma_pago", "total", "cliente", "lineas"],
-          properties: {
-            _id: { bsonType: ["int", "long"] },
-            fecha: { bsonType: "date" },
-            forma_pago: { enum: ["EFECTIVO", "TARJETA", "TRANSFERENCIA"] },
-            total: { bsonType: "decimal", minimum: 0 },
-            cliente: {
-              bsonType: "object",
-              required: ["id_cliente", "nombre"],
-              properties: {
-                id_cliente: { bsonType: ["int", "long"] },
-                nombre: { bsonType: "string" },
-                email: { bsonType: "string" }
-              }
-            },
-            lineas: {
-              bsonType: "array",
-              minItems: 1,
-              items: {
-                bsonType: "object",
-                required: ["id_producto", "nombre", "cantidad", "precio_unitario"],
-                properties: {
-                  id_producto: { bsonType: ["int", "long"] },
-                  nombre: { bsonType: "string" },
-                  cantidad: { bsonType: "int", minimum: 1 },
-                  precio_unitario: { bsonType: "decimal", minimum: 0 }
-                }
-              }
-            }
-          }
-        }
-      },
-      // REGLA R2: Garantiza que ningún producto se repita dentro del mismo pedido
-      {
-        $expr: {
-          $eq: [
-            { $size: "$lineas.id_producto" },
-            { $size: { $setUnion: ["$lineas.id_producto", []] } }
-          ]
-        }
-      }
-    ]
-  }
-});</div>
+db.createCollection("pedidos", { validationLevel: "strict", validationAction: "error", validator: { $and: [
+  { $jsonSchema: { bsonType: "object", required: ["_id", "fecha", "forma_pago", "total", "cliente", "lineas"],
+      properties: {
+        _id: { bsonType: ["int", "long"] },  fecha: { bsonType: "date" },  total: { bsonType: "decimal", minimum: 0 },
+        forma_pago: { enum: ["EFECTIVO", "TARJETA", "TRANSFERENCIA"] },
+        cliente: { bsonType: "object", required: ["id_cliente", "nombre"], properties: {
+          id_cliente: { bsonType: ["int", "long"] }, nombre: { bsonType: "string" }, email: { bsonType: "string" } } },
+        lineas: { bsonType: "array", minItems: 1, items: { bsonType: "object",
+          required: ["id_producto", "nombre", "cantidad", "precio_unitario"], properties: {
+            id_producto: { bsonType: ["int", "long"] },  nombre: { bsonType: "string" },
+            cantidad: { bsonType: "int", minimum: 1 },  precio_unitario: { bsonType: "decimal", minimum: 0 } } } } } } },
+  // R2: ningún id_producto repetido dentro del mismo pedido
+  { $expr: { $eq: [ { $size: "$lineas.id_producto" }, { $size: { $setUnion: ["$lineas.id_producto", []] } } ] } }
+] } });</div>
 
     <div class='section-title'>2. Reglas de Integridad Implementadas</div>
     <div class='grid-2'>
@@ -603,11 +566,11 @@ ORDER BY p.id_pedido;</div>
 
     <div class='section-title'>Consigna 7: Conclusión Técnica y Justificación de la Migración</div>
     <div style='background: #f8fafc; border: 1.5px solid #0284c7; border-radius: 4px; padding: 6px 10px; font-size: 7.6pt; line-height: 1.3;'>
-      <p style='margin-bottom: 4px;'><b>Evaluación de la Arquitectura Documental (Límite: hasta 200 palabras | Criterios técnicos):</b></p>
-      <p>La migración del módulo de pedidos de Food Store desde PostgreSQL a MongoDB demuestra los beneficios y desafíos del modelado documental.</p>
-      <p>El primer criterio técnico es la <b>localidad de datos y el patrón de acceso</b>: embeber cliente y líneas en un único documento permite recuperar pedidos completos en una sola operación sin operaciones de JOIN ni latencia de red adicional, optimizando la lectura transaccional frecuente. Además, la baja cardinalidad del detalle (1 a 6 renglones) elimina el riesgo de saturar el límite de 16 MB de BSON.</p>
-      <p>El segundo criterio técnico es la <b>integridad histórica frente a la redundancia controlada</b>: desnormalizar el nombre y congelar el <code>precio_unitario</code> (regla R4) garantiza que los comprobantes reflejen el valor exacto de la venta, aislándolo de fluctuaciones del catálogo maestro. Aunque almacenar el total precalculado introduce redundancia en un motor sin transacciones relacionales nativas para estas tablas, validarlo con <code>Decimal128</code> y auditarlo mediante agregaciones ($total = \sum lineas$) asegura consistencia absoluta (0 descuadres). En contraposición, restricciones como la no repetición de ítems requirieron validadores de esquema ($expr con $setUnion), dado que los índices multikey no aplican a nivel intra-documento.</p>
-      <p style='text-align: right; font-size: 6.8pt; color: #64748b; margin-top: 2px;'><b>Conclusión: 181 palabras (cumple límite &le; 200 palabras)</b></p>
+      <p><b>Para Food Store conviene combinar ambos motores: mantener PostgreSQL como sistema de registro y usar MongoDB para consultar pedidos completos.</b></p>
+      <p>El primer criterio es el <b>patrón de acceso y la localidad de datos</b>. La operación más frecuente es leer el pedido completo. Con cliente y líneas embebidos, MongoDB lo devuelve en una sola lectura, mientras que PostgreSQL necesita dos JOIN entre tres tablas para la consulta c). Como cada pedido tiene pocas líneas (1 a 6), el documento no crece sin límite.</p>
+      <p>El segundo criterio es la <b>integridad</b>. PostgreSQL garantiza de forma declarativa las claves foráneas, <code>UNIQUE(id_pedido, id_producto)</code> y los <code>CHECK</code> de cantidad y precio. En MongoDB hubo que reconstruir esas reglas con un validador (<code>$jsonSchema</code> y <code>$setUnion</code>), y el total guardado es una redundancia que la aplicación debe mantener y auditar (dio 0 descuadres). Catálogo, stock y clientes cambian seguido y se relacionan entre sí, algo que el modelo relacional resuelve mejor.</p>
+      <p>Por eso no conviene reemplazar PostgreSQL: los pedidos se registran allí y se copian a MongoDB como documentos cerrados, con el precio histórico congelado (R4). Así se aprovecha la lectura rápida sin perder las garantías del motor relacional.</p>
+      <p style='text-align: right; font-size: 6.8pt; color: #64748b; margin-top: 2px;'>191 palabras</p>
     </div>
   </div>
   <div class='footer-box'>
