@@ -95,3 +95,17 @@ A continuación se analizan críticamente dos afirmaciones específicas brindada
 
 1. La IA es una excelente herramienta para sugerir la estructura inicial de documentos (el embebido de `cliente` y `lineas` fue acertado para optimizar el patrón de acceso y aislar el precio histórico R4).
 2. Sin embargo, la IA presenta **alucinaciones conceptuales peligrosas** en temas de restricciones e integridad interna de arreglos (confundiendo la semántica de un índice multikey). Sin una contrastación rigurosa con la documentación oficial del motor, la recomendación de la IA hubiera provocado una falla catastrófica en el sistema de ventas.
+
+
+---
+
+## 5. Consigna 7: Conclusión Técnica y Justificación de la Migración
+
+**Límite:** Hasta 200 palabras | **Criterios técnicos:** Localidad de datos / Patrón de acceso e Integridad histórica / Redundancia controlada.
+
+> La migración del módulo de pedidos de Food Store desde PostgreSQL a MongoDB demuestra los beneficios y desafíos del modelado documental.
+>
+> El primer criterio técnico es la **localidad de datos y el patrón de acceso**: embeber cliente y líneas en un único documento permite recuperar pedidos completos en una sola operación sin operaciones de JOIN ni latencia de red adicional, optimizando la lectura transaccional frecuente. Además, la baja cardinalidad del detalle (1 a 6 renglones) elimina el riesgo de saturar el límite de 16 MB de BSON.
+>
+> El segundo criterio técnico es la **integridad histórica frente a la redundancia controlada**: desnormalizar el nombre y congelar el `precio_unitario` (regla R4) garantiza que los comprobantes reflejen el valor exacto de la venta, aislándolo de fluctuaciones del catálogo maestro. Aunque almacenar el total precalculado introduce redundancia en un motor sin transacciones relacionales nativas para estas tablas, validarlo con `Decimal128` y auditarlo mediante agregaciones ($total = \sum lineas$) asegura consistencia absoluta (0 descuadres). En contraposición, restricciones como la no repetición de ítems requirieron validadores de esquema ($expr con $setUnion), dado que los índices multikey no aplican a nivel intra-documento.
+*(Total: 181 palabras)*
