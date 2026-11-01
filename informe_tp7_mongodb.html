@@ -1,285 +1,158 @@
-<!DOCTYPE html>
-<html lang='es'>
-<head>
-<meta charset='UTF-8'>
-<title>TP 7 - Migración a MongoDB (Food Store)</title>
-<style>
-  @page {
-    size: A4 portrait;
-    margin: 8mm 12mm 8mm 12mm;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: #1e293b;
-    background: #fff;
-    font-size: 8pt;
-    line-height: 1.25;
-  }
-  .page {
-    width: 100%;
-    height: 281mm;
-    max-height: 281mm;
-    page-break-after: always;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding-bottom: 2mm;
-    overflow: hidden;
-  }
-  .page:last-child { page-break-after: avoid; }
-  .header-box {
-    border-bottom: 2px solid #0284c7;
-    padding-bottom: 3px;
-    margin-bottom: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-  }
-  .header-box .inst { font-size: 7pt; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-  .header-box .tp-title { font-size: 11pt; font-weight: 800; color: #0f172a; }
-  .meta-bar {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 4px 8px;
-    margin-bottom: 6px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 7.5pt;
-  }
-  .meta-bar b { color: #0f172a; }
-  .section-title {
-    font-size: 9pt;
-    font-weight: 700;
-    color: #0369a1;
-    border-left: 3px solid #0284c7;
-    padding-left: 5px;
-    margin: 4px 0 3px 0;
-    text-transform: uppercase;
-  }
-  .subsection-title {
-    font-size: 8pt;
-    font-weight: 700;
-    color: #334155;
-    margin: 3px 0 2px 0;
-  }
-  p { margin-bottom: 3px; text-align: justify; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 3px 0 5px 0;
-    font-size: 7pt;
-  }
-  th, td {
-    border: 1px solid #cbd5e1;
-    padding: 2.5px 4px;
-    text-align: left;
-  }
-  th {
-    background: #f1f5f9;
-    color: #0f172a;
-    font-weight: 700;
-  }
-  .table-center th, .table-center td { text-align: center; }
-  .code-block {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 3px;
-    padding: 3px 6px;
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 6.8pt;
-    line-height: 1.18;
-    margin: 2px 0 4px 0;
-    color: #0f172a;
-    white-space: pre-wrap;
-  }
-  .highlight-box {
-    background: #eff6ff;
-    border-left: 3px solid #3b82f6;
-    padding: 3px 6px;
-    margin: 3px 0;
-    font-size: 7.3pt;
-  }
-  .alert-box {
-    background: #fef2f2;
-    border-left: 3px solid #ef4444;
-    padding: 3px 6px;
-    margin: 3px 0;
-    font-size: 7.3pt;
-  }
-  .badge {
-    display: inline-block;
-    padding: 1px 4px;
-    font-size: 6.5pt;
-    font-weight: 700;
-    border-radius: 3px;
-    color: #fff;
-  }
-  .badge-success { background: #16a34a; }
-  .badge-danger { background: #dc2626; }
-  .badge-warning { background: #d97706; }
-  .badge-info { background: #0284c7; }
-  .footer-box {
-    border-top: 1px solid #e2e8f0;
-    padding-top: 2px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 6.8pt;
-    color: #94a3b8;
-  }
-  ul { margin-left: 14px; margin-bottom: 3px; font-size: 7.5pt; }
-  li { margin-bottom: 1.5px; }
-  .grid-2 { display: flex; gap: 8px; }
-  .grid-2 > div { flex: 1; }
-</style>
-</head>
-<body>
+<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><title>TP 7 - Migración a MongoDB (Food Store)</title><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+@page { size: A4; margin: 11mm 13mm 13mm 13mm;
+  @bottom-left { content: "TP 7 · Migración a MongoDB (Food Store)"; font: 7pt 'Segoe UI', Arial, sans-serif; color: #94a3b8; }
+  @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 7pt 'Segoe UI', Arial, sans-serif; color: #94a3b8; } }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Inter, 'Segoe UI', Arial, sans-serif; font-size: 8.9pt; line-height: 1.38; color: #1f2937; }
+.cover { border-bottom: 3px solid #0f4c81; padding-bottom: 6px; margin-bottom: 8px; }
+.cover .inst { font-size: 0.78em; letter-spacing: .06em; text-transform: uppercase; color: #64748b; font-weight: 600; }
+.cover h1 { font-size: 1.9em; color: #0f4c81; font-weight: 800; line-height: 1.15; margin: 2px 0; }
+.cover .sub { color: #475569; font-size: 0.95em; }
+.meta-bar { background: #f1f5f9; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; font-size: 0.9em; }
+.meta-bar a { color: #0f4c81 !important; }
+h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; background: #0f4c81; color: #fff; padding: 5px 10px; border-radius: 6px; margin: 12px 0 7px; font-size: 1.12em; break-after: avoid; }
+h2 small { font-weight: 400; font-size: 0.72em; opacity: .85; text-align: right; }
+.chapter:first-child h2 { margin-top: 0; }
+.section-title { font-size: 1.02em; font-weight: 700; color: #0f4c81; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 1px; margin: 9px 0 4px; break-after: avoid; }
+.subsection-title { font-weight: 700; color: #334155; margin: 7px 0 3px; break-after: avoid; }
+p { margin-bottom: 4px; text-align: justify; }
+code { font-family: Consolas, 'Courier New', monospace; font-size: 0.9em; background: #f1f5f9; padding: 0 2px; border-radius: 2px; }
+table { width: 100%; border-collapse: collapse; margin: 4px 0 7px; font-size: 0.86em; }
+tr { break-inside: avoid; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 3px 5px; text-align: left; vertical-align: top; }
+th { background: #e8eef5; color: #0f172a; font-weight: 700; border-bottom: 1.5px solid #94a3b8; }
+tbody tr:nth-child(even) td { background: #f8fafc; }
+.table-center th, .table-center td { text-align: center; }
+.code-block { background: #0f172a; color: #e2e8f0; border-radius: 5px; padding: 6px 9px; font-family: Consolas, 'Courier New', monospace; font-size: 0.82em; line-height: 1.3; margin: 3px 0 7px; white-space: pre-wrap; break-inside: avoid; }
+.code-block code { background: none; color: inherit; }
+.highlight-box { background: #eff6ff; border-left: 3px solid #2563eb; border-radius: 0 5px 5px 0; padding: 5px 9px; margin: 4px 0 7px; break-inside: avoid; }
+.alert-box { background: #fef2f2; border-left: 3px solid #dc2626; border-radius: 0 5px 5px 0; padding: 5px 9px; margin: 4px 0 7px; break-inside: avoid; }
+.badge { display: inline-block; padding: 1px 6px; font-size: 0.78em; font-weight: 700; border-radius: 4px; color: #fff; }
+.badge-success { background: #16a34a; } .badge-danger { background: #dc2626; } .badge-warning { background: #d97706; } .badge-info { background: #0284c7; }
+ul { margin: 2px 0 6px 16px; } li { margin-bottom: 2px; }
+.grid-2 { display: flex; gap: 10px; } .grid-2 > div { flex: 1; min-width: 0; }
+.grid-2 { align-items: flex-start; }
+.grid-2 > .code-block { white-space: pre; font-size: 0.74em; margin: 0; overflow: hidden; }
+.grid-2 > .code-block.schema { flex: 1.35; }
+.grid-2 > .code-block + .code-block { flex: 1.45; }
+.grid-2 + * { margin-top: 6px; }
+.grid-2 > div:not(.code-block) .highlight-box { margin-top: 0; }
+a { color: #0f4c81; text-decoration: none; }
+</style></head><body><main><section class="chapter"><header class="cover"><div class="inst">UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
+<h1>Trabajo Práctico N.º 7 · Migración a MongoDB</h1><div class="sub">Proyecto Food Store · Ciclo Lectivo 2026 · Comisión 2PRO3</div></header><div class="meta-bar">
+<div><b>Integrantes:</b> Bruno Fiouchetta, Elías Tello, Belén Calvo, Hernán González</div>
+<div><b>Repositorio:</b> <a href="https://github.com/belcalvo93/BaseDatos2-MongoDB" style="color:#0284c7; text-decoration:none;">github.com/belcalvo93/BaseDatos2-MongoDB</a></div>
+</div><h2><span>Consigna 1: Modelo Relacional de Origen y Diseño Documental (Bruno Fiouchetta)</span><small>seleccion_pedidos.sql · modelo_documental.md</small></h2>
 
-<!-- ================= PAGE 1 ================= -->
-<div class='page'>
-  <div>
-    <div class='header-box'>
-      <div>
-        <div class='inst'>UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
-        <div class='tp-title'>Trabajo Práctico N.º 7: Migración a MongoDB (Food Store)</div>
-      </div>
-      <div style='text-align: right; font-size: 7pt; color: #64748b;'>Ciclo Lectivo 2026 · Comisión 3</div>
-    </div>
 
-    <div class='meta-bar'>
-      <div><b>Integrantes:</b> Bruno Fiouchetta, Elías Tello, Belén Calvo, Hernán González</div>
-      <div><b>Repositorio:</b> <a href='https://github.com/belcalvo93/BaseDatos2-MongoDB' style='color:#0284c7; text-decoration:none;'>github.com/belcalvo93/BaseDatos2-MongoDB</a></div>
-    </div>
 
-    <div class='section-title'>Consigna 1: Modelo Relacional de Origen y Diseño Documental (Bruno Fiouchetta)</div>
-    
-    <div class='subsection-title'>1. Tablas y restricciones intervinientes en PostgreSQL (bd2_tp3)</div>
-    <p>La reconstrucción integral del pedido en el esquema normalizado (3FN) involucra cuatro tablas vinculadas por claves foráneas:</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Tabla</th>
-          <th>Clave Primaria (PK)</th>
-          <th>Claves Foráneas (FK)</th>
-          <th>Restricciones y Reglas de Negocio Clave</th>
-          <th>Columnas Migradas</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><b>pedido</b></td>
-          <td><code>id_pedido</code> (BIGINT)</td>
-          <td><code>id_cliente &rarr; cliente(id_cliente)</code></td>
-          <td><code>forma_pago</code> tipo enum (<code>'EFECTIVO'</code>, <code>'TARJETA'</code>, <code>'TRANSFERENCIA'</code>). No posee columna <code>estado</code>.</td>
-          <td><code>id_pedido, fecha, forma_pago, id_cliente</code></td>
-        </tr>
-        <tr>
-          <td><b>detalle_pedido</b></td>
-          <td><code>id_detalle</code> (BIGINT)</td>
-          <td><code>id_pedido &rarr; pedido</code> (CASCADE)<br><code>id_producto &rarr; producto</code> (RESTRICT)</td>
-          <td><b>UNIQUE (id_pedido, id_producto)</b> (impide duplicar productos en un mismo pedido).<br><code>CHECK (cantidad &gt; 0)</code>, <code>CHECK (precio_unitario &gt;= 0)</code>. Subtotal no persistido.</td>
-          <td><code>id_pedido, id_producto, cantidad, precio_unitario</code></td>
-        </tr>
-        <tr>
-          <td><b>cliente</b></td>
-          <td><code>id_cliente</code> (BIGINT)</td>
-          <td>—</td>
-          <td><code>UNIQUE (email)</code> (clave candidata).</td>
-          <td><code>id_cliente, nombre, apellido, email</code></td>
-        </tr>
-        <tr>
-          <td><b>producto</b></td>
-          <td><code>id_producto</code> (BIGINT)</td>
-          <td><code>id_categoria &rarr; categoria</code></td>
-          <td><code>CHECK (precio &gt;= 0)</code>. Catálogo con precio actual dinámico y baja lógica (<code>activo</code>).</td>
-          <td><code>id_producto, nombre</code></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class='subsection-title'>2. Esquema BSON de la colección pedidos en MongoDB</div>
-    <p>Se consolidó la estructura relacional dispersa en una única colección autocontenida llamada <b><code>foodstore.pedidos</code></b>, con cliente y detalle embebidos:</p>
-    <div class='grid-2'>
-      <div class='code-block'>{
-  "_id": 1,                                       // Conserva id_pedido original de PostgreSQL (_id = id_pedido)
-  "fecha": ISODate("2026-08-01T13:15:00.000Z"),   // Fecha en formato ISODate (UTC)
-  "forma_pago": "EFECTIVO",                       // Atributo de clasificación/estado ("EFECTIVO"|"TARJETA"|"TRANSFERENCIA")
-  "total": NumberDecimal("9987.91"),              // Total persistido como Decimal128 (redundancia auditada)
-  "cliente": {                                    // Objeto embebido (relación 1:1 con el pedido)
-    "id_cliente": 1,                              // ID conservado para trazabilidad
-    "nombre": "Ana Gutiérrez",                    // Nombre y apellido concatenados (corregido encoding UTF-8)
+<div class="subsection-title">1. Tablas y restricciones intervinientes en PostgreSQL (bd2_tp3)</div>
+<p>La reconstrucción integral del pedido en el esquema normalizado (3FN) involucra cuatro tablas vinculadas por claves foráneas:</p>
+<table>
+<thead>
+<tr>
+<th>Tabla</th>
+<th>Clave Primaria (PK)</th>
+<th>Claves Foráneas (FK)</th>
+<th>Restricciones y Reglas de Negocio Clave</th>
+<th>Columnas Migradas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>pedido</b></td>
+<td><code>id_pedido</code> (BIGINT)</td>
+<td><code>id_cliente → cliente(id_cliente)</code></td>
+<td><code>forma_pago</code> tipo enum (<code>'EFECTIVO'</code>, <code>'TARJETA'</code>, <code>'TRANSFERENCIA'</code>). No posee columna <code>estado</code>.</td>
+<td><code>id_pedido, fecha, forma_pago, id_cliente</code></td>
+</tr>
+<tr>
+<td><b>detalle_pedido</b></td>
+<td><code>id_detalle</code> (BIGINT)</td>
+<td><code>id_pedido → pedido</code> (CASCADE)<br/><code>id_producto → producto</code> (RESTRICT)</td>
+<td><b>UNIQUE (id_pedido, id_producto)</b> (impide duplicar productos en un mismo pedido).<br/><code>CHECK (cantidad &gt; 0)</code>, <code>CHECK (precio_unitario &gt;= 0)</code>. Subtotal no persistido.</td>
+<td><code>id_pedido, id_producto, cantidad, precio_unitario</code></td>
+</tr>
+<tr>
+<td><b>cliente</b></td>
+<td><code>id_cliente</code> (BIGINT)</td>
+<td>—</td>
+<td><code>UNIQUE (email)</code> (clave candidata).</td>
+<td><code>id_cliente, nombre, apellido, email</code></td>
+</tr>
+<tr>
+<td><b>producto</b></td>
+<td><code>id_producto</code> (BIGINT)</td>
+<td><code>id_categoria → categoria</code></td>
+<td><code>CHECK (precio &gt;= 0)</code>. Catálogo con precio actual dinámico y baja lógica (<code>activo</code>).</td>
+<td><code>id_producto, nombre</code></td>
+</tr>
+</tbody>
+</table>
+<div class="subsection-title">2. Esquema BSON de la colección pedidos en MongoDB</div>
+<p>Se consolidó la estructura relacional dispersa en una única colección autocontenida llamada <b><code>foodstore.pedidos</code></b>, con cliente y detalle embebidos:</p>
+<div class="grid-2">
+<div class="code-block schema">{
+  "_id": 1,                                      // = id_pedido
+  "fecha": ISODate("2026-08-01T13:15:00.000Z"),  // UTC
+  "forma_pago": "EFECTIVO",                      // "estado"
+  "total": NumberDecimal("9987.91"),             // auditado
+  "cliente": {                                   // embebido 1:1
+    "id_cliente": 1,
+    "nombre": "Ana Gutiérrez",
     "email": "ana.gutierrez@example.com"
   },
-  "lineas": [                                     // Arreglo de subdocumentos embebidos (1:N)
+  "lineas": [                                    // arreglo 1:N
     {
-      "id_producto": 1,                           // ID de producto conservado
-      "nombre": "Pan de campo 1kg",               // Nombre del producto al momento de la venta
-      "cantidad": 2,                              // Unidades vendidas (entero &gt;= 1)
-      "precio_unitario": NumberDecimal("2200.00") // R4: Precio histórico congelado (Decimal128)
+      "id_producto": 1,
+      "nombre": "Pan de campo 1kg",
+      "cantidad": 2,
+      "precio_unitario": NumberDecimal("2200.00")  // R4
     }
   ]
 }</div>
-      <div>
-        <div class='highlight-box'>
-          <b>Decisiones fundamentales de diseño:</b><br>
-          &bull; <b>Conservación de Identificadores:</b> Se conservó <code>_id = id_pedido</code>, <code>id_cliente</code> e <code>id_producto</code> para auditoría directa contra PostgreSQL.<br>
-          &bull; <b>Embebido de cliente:</b> Relación 1:1 donde viajan los datos esenciales de facturación sin necesidad de joins.<br>
-          &bull; <b>Embebido de líneas:</b> Cardinalidad baja (1 a 6 renglones). La existencia de las líneas depende enteramente del pedido.<br>
-          &bull; <b>Total persistido:</b> Siguiendo las directivas de clase, se guarda <code>total</code> en <code>Decimal128</code> y se audita con agregaciones frente a la suma de líneas.<br>
-          &bull; <b>Subtotal calculado:</b> Cada línea omite el subtotal para evitar dependencias transitivas; se evalúa al vuelo con <code>$multiply</code>.
+<div>
+<div class="highlight-box">
+<b>Decisiones fundamentales de diseño:</b><br/>
+          • <b>Conservación de Identificadores:</b> Se conservó <code>_id = id_pedido</code>, <code>id_cliente</code> e <code>id_producto</code> para auditoría directa contra PostgreSQL.<br/>
+          • <b>Embebido de cliente:</b> Relación 1:1 donde viajan los datos esenciales de facturación sin necesidad de joins.<br/>
+          • <b>Embebido de líneas:</b> Cardinalidad baja (1 a 6 renglones). La existencia de las líneas depende enteramente del pedido.<br/>
+          • <b>Total persistido:</b> Siguiendo las directivas de clase, se guarda <code>total</code> en <code>Decimal128</code> y se audita con agregaciones frente a la suma de líneas.<br/>
+          • <b>Subtotal calculado:</b> Cada línea omite el subtotal para evitar dependencias transitivas; se evalúa al vuelo con <code>$multiply</code>.
         </div>
-      </div>
-    </div>
-
-    <div class='subsection-title'>3. Selección representativa de 8 pedidos desde bd2_tp3 (seleccion_pedidos.sql)</div>
-    <p>Se seleccionaron <b>8 pedidos reales</b> (30 líneas de detalle, suma acumulada de <b>$84.403,74</b> y promedio de <b>$10.550,47</b>), cubriendo todos los requisitos:</p>
-    <table>
-      <thead>
-        <tr>
-          <th style='text-align:center;'>id_pedido (_id)</th>
-          <th>Fecha (UTC)</th>
-          <th style='text-align:center;'>Forma de Pago</th>
-          <th>Cliente</th>
-          <th style='text-align:center;'>Líneas</th>
-          <th style='text-align:right;'>Total Acumulado</th>
-          <th>IDs Productos en lineas[] (Criterios evaluados)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td style='text-align:center;'><b>1</b></td><td>2026-08-01 13:15:00</td><td style='text-align:center;'>EFECTIVO</td><td>Ana Gutiérrez</td><td style='text-align:center;'>5</td><td style='text-align:right;'>$9.987,91</td><td><b>1</b> (precio $2200), 5, 66076, 72206, 83667</td></tr>
-        <tr><td style='text-align:center;'><b>2</b></td><td>2026-08-03 21:40:00</td><td style='text-align:center;'>TARJETA</td><td>Bruno Salinas</td><td style='text-align:center;'>6</td><td style='text-align:right;'>$19.036,35</td><td>3, 7, 38558, 51872, 66351, 69939 (Supera umbral d)</td></tr>
-        <tr><td style='text-align:center;'><b>3</b></td><td>2026-08-07 12:05:00</td><td style='text-align:center;'>TRANSFERENCIA</td><td>Ana Gutiérrez</td><td style='text-align:center;'>6</td><td style='text-align:right;'>$15.453,62</td><td>2, 6, 67973, 71591, 71682, 72234 (Supera umbral d)</td></tr>
-        <tr><td style='text-align:center;'><b>4</b></td><td>2026-08-12 23:30:00</td><td style='text-align:center;'>TARJETA</td><td>Carla Medina</td><td style='text-align:center;'>5</td><td style='text-align:right;'>$16.658,04</td><td>8, 9, 66290, 68909, 81323 (Supera umbral d)</td></tr>
-        <tr><td style='text-align:center;'><b>5</b></td><td>2026-08-18 15:00:00</td><td style='text-align:center;'>EFECTIVO</td><td>Diego Ferrari</td><td style='text-align:center;'>3</td><td style='text-align:right;'>$4.293,65</td><td>4, 75467, 80098</td></tr>
-        <tr><td style='text-align:center;'><b>45018</b></td><td>2025-05-23 06:26:12</td><td style='text-align:center;'>EFECTIVO</td><td>Nombre4545 Apellido4545</td><td style='text-align:center;'>1</td><td style='text-align:right;'>$1.931,96</td><td>35767 (Caso sugerido en clase: pedido de 1 línea)</td></tr>
-        <tr><td style='text-align:center;'><b>59428</b></td><td>2025-05-08 10:01:17</td><td style='text-align:center;'>TRANSFERENCIA</td><td>Nombre4898 Apellido4898</td><td style='text-align:center;'>2</td><td style='text-align:right;'>$7.552,58</td><td><b>1</b> (precio $2500), 64780</td></tr>
-        <tr><td style='text-align:center;'><b>74364</b></td><td>2026-02-27 12:13:59</td><td style='text-align:center;'>TARJETA</td><td>Nombre6217 Apellido6217</td><td style='text-align:center;'>2</td><td style='text-align:right;'>$9.489,63</td><td><b>1</b> (precio $2500), 35739</td></tr>
-      </tbody>
-    </table>
-    <p style='font-size: 7.2pt; color: #475569;'><b>Cumplimiento de consigna:</b> Presenta las 3 formas de pago (EFECTIVO: 3, TARJETA: 3, TRANSFERENCIA: 2); producto testigo repetido (<code>id_producto = 1</code>) en 3 pedidos con precio histórico congelado R4 ($2200 en pedido 1 vs $2500 en 59428 y 74364); y variedad de líneas (1 a 6) y totales ($1931 a $19036).</p>
-  </div>
-  <div class='footer-box'>
-    <div>TP 7 — Migración a MongoDB (Food Store) · Consigna 1</div>
-    <div>Página 1 de 5</div>
-  </div>
 </div>
+</div>
+<div class="subsection-title">3. Selección representativa de 8 pedidos desde bd2_tp3 (seleccion_pedidos.sql)</div>
+<p>Se seleccionaron <b>8 pedidos reales</b> (30 líneas de detalle, suma acumulada de <b>$84.403,74</b> y promedio de <b>$10.550,47</b>), cubriendo todos los requisitos:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center;">id_pedido (_id)</th>
+<th>Fecha (UTC)</th>
+<th style="text-align:center;">Forma de Pago</th>
+<th>Cliente</th>
+<th style="text-align:center;">Líneas</th>
+<th style="text-align:right;">Total Acumulado</th>
+<th>IDs Productos en lineas[] (Criterios evaluados)</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="text-align:center;"><b>1</b></td><td>2026-08-01 13:15:00</td><td style="text-align:center;">EFECTIVO</td><td>Ana Gutiérrez</td><td style="text-align:center;">5</td><td style="text-align:right;">$9.987,91</td><td><b>1</b> (precio $2200), 5, 66076, 72206, 83667</td></tr>
+<tr><td style="text-align:center;"><b>2</b></td><td>2026-08-03 21:40:00</td><td style="text-align:center;">TARJETA</td><td>Bruno Salinas</td><td style="text-align:center;">6</td><td style="text-align:right;">$19.036,35</td><td>3, 7, 38558, 51872, 66351, 69939 (Supera umbral d)</td></tr>
+<tr><td style="text-align:center;"><b>3</b></td><td>2026-08-07 12:05:00</td><td style="text-align:center;">TRANSFERENCIA</td><td>Ana Gutiérrez</td><td style="text-align:center;">6</td><td style="text-align:right;">$15.453,62</td><td>2, 6, 67973, 71591, 71682, 72234 (Supera umbral d)</td></tr>
+<tr><td style="text-align:center;"><b>4</b></td><td>2026-08-12 23:30:00</td><td style="text-align:center;">TARJETA</td><td>Carla Medina</td><td style="text-align:center;">5</td><td style="text-align:right;">$16.658,04</td><td>8, 9, 66290, 68909, 81323 (Supera umbral d)</td></tr>
+<tr><td style="text-align:center;"><b>5</b></td><td>2026-08-18 15:00:00</td><td style="text-align:center;">EFECTIVO</td><td>Diego Ferrari</td><td style="text-align:center;">3</td><td style="text-align:right;">$4.293,65</td><td>4, 75467, 80098</td></tr>
+<tr><td style="text-align:center;"><b>45018</b></td><td>2025-05-23 06:26:12</td><td style="text-align:center;">EFECTIVO</td><td>Nombre4545 Apellido4545</td><td style="text-align:center;">1</td><td style="text-align:right;">$1.931,96</td><td>35767 (Caso sugerido en clase: pedido de 1 línea)</td></tr>
+<tr><td style="text-align:center;"><b>59428</b></td><td>2025-05-08 10:01:17</td><td style="text-align:center;">TRANSFERENCIA</td><td>Nombre4898 Apellido4898</td><td style="text-align:center;">2</td><td style="text-align:right;">$7.552,58</td><td><b>1</b> (precio $2500), 64780</td></tr>
+<tr><td style="text-align:center;"><b>74364</b></td><td>2026-02-27 12:13:59</td><td style="text-align:center;">TARJETA</td><td>Nombre6217 Apellido6217</td><td style="text-align:center;">2</td><td style="text-align:right;">$9.489,63</td><td><b>1</b> (precio $2500), 35739</td></tr>
+</tbody>
+</table>
+<p style="color: #475569;"><b>Cumplimiento de consigna:</b> Presenta las 3 formas de pago (EFECTIVO: 3, TARJETA: 3, TRANSFERENCIA: 2); producto testigo repetido (<code>id_producto = 1</code>) en 3 pedidos con precio histórico congelado R4 ($2200 en pedido 1 vs $2500 en 59428 y 74364); y variedad de líneas (1 a 6) y totales ($1931 a $19036).</p>
+</section><section class="chapter"><h2><span>Consignas 2 y 3: Migración, Validación e Integridad (Elías Tello)</span><small>consultas_mongodb.js</small></h2>
 
-<!-- ================= PAGE 2 ================= -->
-<div class='page'>
-  <div>
-    <div class='header-box'>
-      <div>
-        <div class='inst'>UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
-        <div class='tp-title'>Consignas 2 y 3: Migración, Validación e Integridad (Elías Tello)</div>
-      </div>
-      <div style='text-align: right; font-size: 7pt; color: #64748b;'>consultas_mongodb.js</div>
-    </div>
-
-    <div class='section-title'>1. Creación de la Colección y Validador Estricto de Esquema</div>
-    <p>Para asegurar integridad a nivel de base de datos sin depender exclusivamente del cliente, la colección <code>foodstore.pedidos</code> se creó con un validador compuesto que combina <code>$jsonSchema</code> y expresiones lógicas <code>$expr</code> (validationLevel: 'strict', validationAction: 'error'):</p>
-
-    <div class='code-block'>db = db.getSiblingDB("foodstore");
+<div class="section-title">1. Creación de la Colección y Validador Estricto de Esquema</div>
+<p>Para asegurar integridad a nivel de base de datos sin depender exclusivamente del cliente, la colección <code>foodstore.pedidos</code> se creó con un validador compuesto que combina <code>$jsonSchema</code> y expresiones lógicas <code>$expr</code> (validationLevel: 'strict', validationAction: 'error'):</p>
+<div class="code-block">db = db.getSiblingDB("foodstore");
 db.createCollection("pedidos", { validationLevel: "strict", validationAction: "error", validator: { $and: [
   { $jsonSchema: { bsonType: "object", required: ["_id", "fecha", "forma_pago", "total", "cliente", "lineas"],
       properties: {
@@ -294,32 +167,29 @@ db.createCollection("pedidos", { validationLevel: "strict", validationAction: "e
   // R2: ningún id_producto repetido dentro del mismo pedido
   { $expr: { $eq: [ { $size: "$lineas.id_producto" }, { $size: { $setUnion: ["$lineas.id_producto", []] } } ] } }
 ] } });</div>
-
-    <div class='section-title'>2. Reglas de Integridad Implementadas</div>
-    <div class='grid-2'>
-      <div class='highlight-box'>
-        <b>R1. Precio histórico congelado (Regla R4 de Food Store):</b><br>
-        En PostgreSQL, <code>detalle_pedido.precio_unitario</code> almacena el precio al que se vendió el ítem. En MongoDB, cada subdocumento de <code>lineas</code> guarda ese importe exacto con tipado <code>Decimal128</code> (<code>NumberDecimal</code>), evitando errores de redondeo binario. El valor queda totalmente desvinculado del catálogo relacional (<code>producto.precio</code>).<br>
-        <i>Prueba fehaciente:</i> El <code>id_producto = 1</code> se cargó a <b>$2.200,00</b> en el pedido 1 y a <b>$2.500,00</b> en los pedidos 59428 y 74364.
+<div class="section-title">2. Reglas de Integridad Implementadas</div>
+<div class="grid-2">
+<div class="highlight-box">
+<b>R1. Precio histórico congelado (Regla R4 de Food Store):</b><br/>
+        En PostgreSQL, <code>detalle_pedido.precio_unitario</code> almacena el precio al que se vendió el ítem. En MongoDB, cada subdocumento de <code>lineas</code> guarda ese importe exacto con tipado <code>Decimal128</code> (<code>NumberDecimal</code>), evitando errores de redondeo binario. El valor queda totalmente desvinculado del catálogo relacional (<code>producto.precio</code>).<br/>
+<i>Prueba fehaciente:</i> El <code>id_producto = 1</code> se cargó a <b>$2.200,00</b> en el pedido 1 y a <b>$2.500,00</b> en los pedidos 59428 y 74364.
       </div>
-      <div class='highlight-box'>
-        <b>R2. Unicidad de producto dentro del pedido:</b><br>
-        En PostgreSQL lo garantiza la restricción compuesta <code>UNIQUE (id_pedido, id_producto)</code>.<br>
-        En MongoDB, como los índices únicos multikey no aplican a nivel intra-documento (sino entre documentos), se utilizó la regla de validación de conjuntos <code>$setUnion</code>.<br>
-        <i>Mecanismo:</i> Si la cantidad de elementos en <code>lineas.id_producto</code> difiere del tamaño de su unión de conjuntos únicos, el motor aborta la operación con código de error 121 (Document failed validation).
+<div class="highlight-box">
+<b>R2. Unicidad de producto dentro del pedido:</b><br/>
+        En PostgreSQL lo garantiza la restricción compuesta <code>UNIQUE (id_pedido, id_producto)</code>.<br/>
+        En MongoDB, como los índices únicos multikey no aplican a nivel intra-documento (sino entre documentos), se utilizó la regla de validación de conjuntos <code>$setUnion</code>.<br/>
+<i>Mecanismo:</i> Si la cantidad de elementos en <code>lineas.id_producto</code> difiere del tamaño de su unión de conjuntos únicos, el motor aborta la operación con código de error 121 (Document failed validation).
       </div>
-    </div>
-
-    <div class='section-title'>3. Justificación de Diseño: Embeber vs. Colecciones Separadas</div>
-    <ul>
-      <li><b>Cliente (objeto embebido):</b> Relación 1:1. El pedido requiere disponer inmediatamente del nombre y correo del comprador para visualización y emisión de comprobantes. Se embeben solo los atributos estables; el maestro de clientes continúa residiendo en su tabla relacional.</li>
-      <li><b>Líneas (arreglo de subdocumentos):</b> Las líneas poseen una relación de contención existencial con el pedido (en PostgreSQL tienen <code>ON DELETE CASCADE</code>) y carecen de sentido de forma autónoma. Al ser un número reducido (1 a 6 renglones), no existe riesgo de aproximarse al límite de 16 MB por documento BSON.</li>
-      <li><b>Rendimiento y Atomicidad:</b> Al embeber ambos elementos, un pedido completo se lee y se escribe en <b>una única operación de E/S atómica</b>, eliminando por completo los bloqueos distribuidos y los costosos <code>$lookup</code> en tiempo de ejecución.</li>
-    </ul>
-
-    <div class='section-title'>4. Ejecución de Migración y Verificación de Integridad</div>
-    <p>Se ejecutó <code>insertMany()</code> migrando los 8 pedidos. La auditoría cruzada contra PostgreSQL arrojó coincidencia matemática absoluta:</p>
-    <div class='code-block'>// Salida de ejecución en mongosh (evidencias/salida_migracion_y_verificacion.txt):
+</div>
+<div class="section-title">3. Justificación de Diseño: Embeber vs. Colecciones Separadas</div>
+<ul>
+<li><b>Cliente (objeto embebido):</b> Relación 1:1. El pedido requiere disponer inmediatamente del nombre y correo del comprador para visualización y emisión de comprobantes. Se embeben solo los atributos estables; el maestro de clientes continúa residiendo en su tabla relacional.</li>
+<li><b>Líneas (arreglo de subdocumentos):</b> Las líneas poseen una relación de contención existencial con el pedido (en PostgreSQL tienen <code>ON DELETE CASCADE</code>) y carecen de sentido de forma autónoma. Al ser un número reducido (1 a 6 renglones), no existe riesgo de aproximarse al límite de 16 MB por documento BSON.</li>
+<li><b>Rendimiento y Atomicidad:</b> Al embeber ambos elementos, un pedido completo se lee y se escribe en <b>una única operación de E/S atómica</b>, sin necesidad de <code>$lookup</code>.</li>
+</ul>
+<div class="section-title">4. Ejecución de Migración y Verificación de Integridad</div>
+<p>Se ejecutó <code>insertMany()</code> migrando los 8 pedidos. La auditoría cruzada contra PostgreSQL arrojó coincidencia exacta en los 8 pedidos:</p>
+<div class="code-block">// Salida de ejecución en mongosh (evidencias/salida_migracion_y_verificacion.txt):
 Documentos en foodstore.pedidos: 8
 1     | EFECTIVO      | lineas=5 | total=9987.91  | suma_lineas=9987.91  | coincide=true
 2     | TARJETA       | lineas=6 | total=19036.35 | suma_lineas=19036.35 | coincide=true
@@ -331,80 +201,58 @@ Documentos en foodstore.pedidos: 8
 74364 | TARJETA       | lineas=2 | total=9489.63  | suma_lineas=9489.63  | coincide=true
 Pedidos con total distinto de la suma de líneas: 0 (esperado: 0)
 OK R2: rechazado el pedido con producto repetido (código 121: Document failed validation)</div>
-    <p style='font-size: 7.2pt; color: #475569;'><i>Nota técnica de encoding:</i> En <code>bd2_tp3</code> el apellido de Ana Gutiérrez figuraba corrupto como 'GutiÃ©rrez' (falla histórica UTF-8 importada como Latin-1). Se normalizó a 'Gutiérrez' mediante <code>convert_from(convert_to(apellido, 'LATIN1'), 'UTF8')</code> sin alterar IDs ni montos.</p>
-  </div>
-  <div class='footer-box'>
-    <div>TP 7 — Migración a MongoDB (Food Store) · Consignas 2 y 3</div>
-    <div>Página 2 de 5</div>
-  </div>
-</div>
+<p style="color: #475569;"><i>Nota técnica de encoding:</i> En <code>bd2_tp3</code> el apellido de Ana Gutiérrez figuraba corrupto como 'GutiÃ©rrez' (falla histórica UTF-8 importada como Latin-1). Se normalizó a 'Gutiérrez' mediante <code>convert_from(convert_to(apellido, 'LATIN1'), 'UTF8')</code> sin alterar IDs ni montos.</p>
+</section><section class="chapter"><h2><span>Consigna 4: Consultas de Negocio en MongoDB (Belén Calvo)</span><small>consultas_mongodb.js</small></h2>
 
-<!-- ================= PAGE 3 ================= -->
-<div class='page'>
-  <div>
-    <div class='header-box'>
-      <div>
-        <div class='inst'>UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
-        <div class='tp-title'>Consigna 4: Consultas de Negocio en MongoDB (Belén Calvo)</div>
-      </div>
-      <div style='text-align: right; font-size: 7pt; color: #64748b;'>consultas_mongodb.js</div>
-    </div>
-
-    <div class='section-title'>Criterios Generales de Consulta y Aclaraciones Previas</div>
-    <p><b>1. Criterio sobre 'eliminado = false':</b> Ninguna de las tablas de origen (<code>pedido</code>, <code>detalle_pedido</code>, <code>cliente</code>, <code>producto</code>) posee columna de borrado lógico en <code>bd2_tp3</code>. La columna <code>producto.activo</code> corresponde al estado actual del catálogo, no de la venta histórica, por lo que no se aplica ningún filtro de eliminación para preservar fielmente los datos.<br>
-    <b>2. Equivalencia de Estado:</b> La tabla <code>pedido</code> no tiene columna <code>estado</code>; se emplea <code>forma_pago</code> (EFECTIVO, TARJETA, TRANSFERENCIA) como atributo de clasificación según se acordó en el diseño.</p>
-
-    <div class='section-title'>Consultas Implementadas y Resultados Obtenidos</div>
-
-    <div class='subsection-title'>a) Listado completo de pedidos (Identificador y Estado)</div>
-    <div class='code-block'>db.pedidos.find({}, { _id: 1, forma_pago: 1 }).sort({ _id: 1 });
+<div class="section-title">Criterios Generales de Consulta y Aclaraciones Previas</div>
+<p><b>1. Criterio sobre 'eliminado = false':</b> Ninguna de las tablas de origen (<code>pedido</code>, <code>detalle_pedido</code>, <code>cliente</code>, <code>producto</code>) posee columna de borrado lógico en <code>bd2_tp3</code>. La columna <code>producto.activo</code> corresponde al estado actual del catálogo, no de la venta histórica, por lo que no se aplica ningún filtro de eliminación para preservar fielmente los datos.<br/>
+<b>2. Equivalencia de Estado:</b> La tabla <code>pedido</code> no tiene columna <code>estado</code>; se emplea <code>forma_pago</code> (EFECTIVO, TARJETA, TRANSFERENCIA) como atributo de clasificación según se acordó en el diseño.</p>
+<div class="section-title">Consultas Implementadas y Resultados Obtenidos</div>
+<div class="subsection-title">a) Listado completo de pedidos (Identificador y Estado)</div>
+<div class="code-block">db.pedidos.find({}, { _id: 1, forma_pago: 1 }).sort({ _id: 1 });
 // Resultado: 8 documentos retornados [1: EFECTIVO, 2: TARJETA, 3: TRANSFERENCIA, 4: TARJETA, 5: EFECTIVO, 45018: EFECTIVO, 59428: TRANSFERENCIA, 74364: TARJETA]. Cantidad: 8</div>
-
-    <div class='subsection-title'>b) Pedidos filtrados por forma_pago = 'EFECTIVO'</div>
-    <p>Se seleccionó 'EFECTIVO' dado que recupera un subconjunto no trivial de 3 pedidos sobre los 8 totales, demostrando la selectividad del filtro:</p>
-    <div class='grid-2'>
-      <div class='code-block'>db.pedidos.find(
+<div class="subsection-title">b) Pedidos filtrados por forma_pago = 'EFECTIVO'</div>
+<p>Se seleccionó 'EFECTIVO' dado que recupera un subconjunto no trivial de 3 pedidos sobre los 8 totales, demostrando la selectividad del filtro:</p>
+<div class="grid-2">
+<div class="code-block">db.pedidos.find(
   { forma_pago: "EFECTIVO" },
   { _id: 1, fecha: 1, forma_pago: 1, total: 1 }
 ).sort({ _id: 1 });</div>
-      <div class='code-block'>// Salida de ejecución:
+<div class="code-block">// Salida de ejecución:
 1     | 2026-08-01T13:15:00.000Z | EFECTIVO | 9987.91
 5     | 2026-08-18T15:00:00.000Z | EFECTIVO | 4293.65
 45018 | 2025-05-23T06:26:12.027Z | EFECTIVO | 1931.96
 Cantidad de documentos: 3</div>
-    </div>
-
-    <div class='subsection-title'>c) Pedidos que contienen id_producto = 1 (Pan de campo 1kg)</div>
-    <p>Se consulta por el identificador único numérico del producto en el arreglo embebido. El operador de proyección posicional <code>"lineas.$"</code> permite aislar la línea coincidente para inspeccionar el precio congelado (regla R4):</p>
-    <div class='grid-2'>
-      <div class='code-block'>db.pedidos.find(
+</div>
+<div class="subsection-title">c) Pedidos que contienen id_producto = 1 (Pan de campo 1kg)</div>
+<p>Se consulta por el identificador único numérico del producto en el arreglo embebido. El operador de proyección posicional <code>"lineas.$"</code> permite aislar la línea coincidente para inspeccionar el precio congelado (regla R4):</p>
+<div class="grid-2">
+<div class="code-block">db.pedidos.find(
   { "lineas.id_producto": 1 },
   { _id: 1, forma_pago: 1, "lineas.$": 1 }
 ).sort({ _id: 1 });</div>
-      <div class='code-block'>// Salida de ejecución:
+<div class="code-block">// Salida de ejecución:
 1     | EFECTIVO      | Pan de campo 1kg | cant=2 | precio_unit=2200.00
 59428 | TRANSFERENCIA | Pan de campo 1kg | cant=3 | precio_unit=2500.00
 74364 | TARJETA       | Pan de campo 1kg | cant=3 | precio_unit=2500.00
 Cantidad de documentos: 3</div>
-    </div>
-
-    <div class='subsection-title'>d) Pedidos con total > $10.000 (orden descendente por total)</div>
-    <p><b>Justificación del umbral elegido ($10.000):</b> El total promedio de los 8 pedidos migrados es de <b>$10.550,47</b>. El umbral de $10.000,00 segmenta limpiamente el lote: 3 pedidos se sitúan por encima (2, 4 y 3) y 5 por debajo. Destaca el pedido 1 ($9.987,91), que queda inmediatamente debajo del límite, demostrando que la comparación aritmética con <code>NumberDecimal</code> es exacta al centavo. Al estar persistido el total, la consulta se resuelve con un <code>find</code> directo sin agregación:</p>
-    <div class='grid-2'>
-      <div class='code-block'>db.pedidos.find(
+</div>
+<div class="subsection-title">d) Pedidos con total &gt; $10.000 (orden descendente por total)</div>
+<p><b>Justificación del umbral elegido ($10.000):</b> El total promedio de los 8 pedidos migrados es de <b>$10.550,47</b>. El umbral de $10.000,00 segmenta limpiamente el lote: 3 pedidos se sitúan por encima (2, 4 y 3) y 5 por debajo. Destaca el pedido 1 ($9.987,91), que queda inmediatamente debajo del límite, demostrando que la comparación aritmética con <code>NumberDecimal</code> es exacta al centavo. Al estar persistido el total, la consulta se resuelve con un <code>find</code> directo sin agregación:</p>
+<div class="grid-2">
+<div class="code-block">db.pedidos.find(
   { total: { $gt: NumberDecimal("10000") } },
   { _id: 1, forma_pago: 1, total: 1 }
 ).sort({ total: -1 });</div>
-      <div class='code-block'>// Salida de ejecución:
+<div class="code-block">// Salida de ejecución:
 2 | TARJETA       | 19036.35
 4 | TARJETA       | 16658.04
 3 | TRANSFERENCIA | 15453.62
 Cantidad de documentos: 3</div>
-    </div>
-
-    <div class='section-title'>Auditoría de Redundancia Controlada: Total Guardado vs. Suma de Líneas</div>
-    <p>Siguiendo las directivas pedagógicas de cátedra, se implementó una consulta de agregación para comprobar que el campo <code>total</code> persistido coincida estrictamente con la suma calculada en el arreglo <code>lineas</code>:</p>
-    <div class='code-block'>const descuadrados = db.pedidos.aggregate([
+</div>
+<div class="section-title">Auditoría de Redundancia Controlada: Total Guardado vs. Suma de Líneas</div>
+<p>Siguiendo las directivas pedagógicas de cátedra, se implementó una consulta de agregación para comprobar que el campo <code>total</code> persistido coincida estrictamente con la suma calculada en el arreglo <code>lineas</code>:</p>
+<div class="code-block">const descuadrados = db.pedidos.aggregate([
   {
     $project: {
       total: 1,
@@ -414,31 +262,14 @@ Cantidad de documentos: 3</div>
   { $match: { $expr: { $ne: ["$total", "$suma_lineas"] } } }
 ]).toArray();
 // Resultado: Pedidos con total distinto de la suma de líneas: 0 (esperado: 0)</div>
-  </div>
-  <div class='footer-box'>
-    <div>TP 7 — Migración a MongoDB (Food Store) · Consigna 4</div>
-    <div>Página 3 de 5</div>
-  </div>
-</div>
+</section><section class="chapter"><h2><span>Consigna 5: Verificación Cruzada PostgreSQL vs. MongoDB (Belén Calvo)</span><small>consultas_postgresql.sql · consigna5_tabla_comparativa.md</small></h2>
 
-<!-- ================= PAGE 4 ================= -->
-<div class='page'>
-  <div>
-    <div class='header-box'>
-      <div>
-        <div class='inst'>UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
-        <div class='tp-title'>Consigna 5: Verificación Cruzada PostgreSQL vs. MongoDB (Belén Calvo)</div>
-      </div>
-      <div style='text-align: right; font-size: 7pt; color: #64748b;'>consultas_postgresql.sql · consigna5_tabla_comparativa.md</div>
-    </div>
-
-    <div class='section-title'>1. Consultas Equivalentes en PostgreSQL (bd2_tp3)</div>
-    <p>Para asegurar una comparación rigurosa, todas las consultas SQL se limitaron exactamente a los 8 pedidos migrados mediante la cláusula <code>WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)</code>. Sin esta restricción, PostgreSQL operaría sobre la totalidad de la base masiva y los volúmenes no serían equiparables.</p>
-
-    <div class='grid-2'>
-      <div>
-        <div class='subsection-title'>Consulta b) en PostgreSQL (forma_pago = 'EFECTIVO')</div>
-        <div class='code-block'>SELECT p.id_pedido, p.fecha, p.forma_pago,
+<div class="section-title">1. Consultas Equivalentes en PostgreSQL (bd2_tp3)</div>
+<p>Para asegurar una comparación rigurosa, todas las consultas SQL se limitaron exactamente a los 8 pedidos migrados mediante la cláusula <code>WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)</code>. Sin esta restricción, PostgreSQL operaría sobre la totalidad de la base masiva y los volúmenes no serían equiparables.</p>
+<div class="grid-2">
+<div>
+<div class="subsection-title">Consulta b) en PostgreSQL (forma_pago = 'EFECTIVO')</div>
+<div class="code-block">SELECT p.id_pedido, p.fecha, p.forma_pago,
        SUM(dp.cantidad * dp.precio_unitario) AS total
 FROM pedido p
 INNER JOIN detalle_pedido dp ON dp.id_pedido = p.id_pedido
@@ -446,10 +277,10 @@ WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)
   AND p.forma_pago = 'EFECTIVO'
 GROUP BY p.id_pedido, p.fecha, p.forma_pago
 ORDER BY p.id_pedido;</div>
-      </div>
-      <div>
-        <div class='subsection-title'>Consulta c) en PostgreSQL (id_producto = 1)</div>
-        <div class='code-block'>SELECT p.id_pedido, p.forma_pago, pr.nombre, 
+</div>
+<div>
+<div class="subsection-title">Consulta c) en PostgreSQL (id_producto = 1)</div>
+<div class="code-block">SELECT p.id_pedido, p.forma_pago, pr.nombre, 
        dp.cantidad, dp.precio_unitario
 FROM pedido p
 INNER JOIN detalle_pedido dp ON dp.id_pedido = p.id_pedido
@@ -457,127 +288,96 @@ INNER JOIN producto pr       ON pr.id_producto = dp.id_producto
 WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)
   AND dp.id_producto = 1
 ORDER BY p.id_pedido;</div>
-      </div>
-    </div>
-
-    <div class='section-title'>2. Tabla Comparativa Oficial de Verificación</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Consulta Evaluada</th>
-          <th style='text-align:center;'>Cantidad en PostgreSQL</th>
-          <th style='text-align:center;'>Cantidad en MongoDB</th>
-          <th>IDs Obtenidos</th>
-          <th style='text-align:center;'>Coinciden IDs</th>
-          <th style='text-align:center;'>Coinciden Importes y Precios</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><b>b) Estado / Forma de pago: EFECTIVO</b></td>
-          <td style='text-align:center;'>3</td>
-          <td style='text-align:center;'>3</td>
-          <td>1, 5, 45018</td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ</span></td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ ($9987.91, $4293.65, $1931.96)</span></td>
-        </tr>
-        <tr>
-          <td><b>c) Producto: id_producto = 1 (Pan de campo)</b></td>
-          <td style='text-align:center;'>3</td>
-          <td style='text-align:center;'>3</td>
-          <td>1, 59428, 74364</td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ</span></td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ ($2200.00 en 1; $2500.00 en resto)</span></td>
-        </tr>
-        <tr>
-          <td><i>Control adicional:</i> a) Todos los pedidos</td>
-          <td style='text-align:center;'>8</td>
-          <td style='text-align:center;'>8</td>
-          <td>1, 2, 3, 4, 5, 45018, 59428, 74364</td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ</span></td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ (Total acumulado: $84.403,74)</span></td>
-        </tr>
-        <tr>
-          <td><i>Control adicional:</i> d) Total &gt; $10.000 (descendente)</td>
-          <td style='text-align:center;'>3</td>
-          <td style='text-align:center;'>3</td>
-          <td>2, 4, 3 (mismo orden)</td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ</span></td>
-          <td style='text-align:center;'><span class='badge badge-success'>SÍ ($19036.35, $16658.04, $15453.62)</span></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class='section-title'>3. Análisis Técnico de Diferencias Detectadas</div>
-    <div class='highlight-box'>
-      <b>1. Precisión de las Marcas Temporales (Timestamps):</b><br>
+</div>
+</div>
+<div class="section-title">2. Tabla Comparativa Oficial de Verificación</div>
+<table>
+<thead>
+<tr>
+<th>Consulta Evaluada</th>
+<th style="text-align:center;">Cantidad en PostgreSQL</th>
+<th style="text-align:center;">Cantidad en MongoDB</th>
+<th>IDs Obtenidos</th>
+<th style="text-align:center;">Coinciden IDs</th>
+<th style="text-align:center;">Coinciden Importes y Precios</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>b) Estado / Forma de pago: EFECTIVO</b></td>
+<td style="text-align:center;">3</td>
+<td style="text-align:center;">3</td>
+<td>1, 5, 45018</td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ</span></td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ ($9987.91, $4293.65, $1931.96)</span></td>
+</tr>
+<tr>
+<td><b>c) Producto: id_producto = 1 (Pan de campo)</b></td>
+<td style="text-align:center;">3</td>
+<td style="text-align:center;">3</td>
+<td>1, 59428, 74364</td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ</span></td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ ($2200.00 en 1; $2500.00 en resto)</span></td>
+</tr>
+<tr>
+<td><i>Control adicional:</i> a) Todos los pedidos</td>
+<td style="text-align:center;">8</td>
+<td style="text-align:center;">8</td>
+<td>1, 2, 3, 4, 5, 45018, 59428, 74364</td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ</span></td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ (Total acumulado: $84.403,74)</span></td>
+</tr>
+<tr>
+<td><i>Control adicional:</i> d) Total &gt; $10.000 (descendente)</td>
+<td style="text-align:center;">3</td>
+<td style="text-align:center;">3</td>
+<td>2, 4, 3 (mismo orden)</td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ</span></td>
+<td style="text-align:center;"><span class="badge badge-success">SÍ ($19036.35, $16658.04, $15453.62)</span></td>
+</tr>
+</tbody>
+</table>
+<div class="section-title">3. Análisis Técnico de Diferencias Detectadas</div>
+<div class="highlight-box">
+<b>1. Precisión de las Marcas Temporales (Timestamps):</b><br/>
       En los pedidos procedentes de la carga masiva (45018, 59428, 74364), PostgreSQL almacena microsegundos en su tipo <code>TIMESTAMPTZ</code> (ej. <code>2025-05-23 06:26:12.027438+00</code>), mientras que el tipo <code>Date</code> de BSON en MongoDB trabaja internamente con precisión de milisegundos (ej. <code>2025-05-23T06:26:12.027Z</code>). En consecuencia, la migración trunca los últimos 3 dígitos de la fracción de segundo. No altera IDs, importes ni resultados de filtros temporales a nivel de segundo/minuto.
     </div>
-
-    <div class='highlight-box'>
-      <b>2. Eliminación de Joins y Complejidad de Consulta:</b><br>
-      &bull; <i>En la consulta b):</i> PostgreSQL debe computar <code>SUM(cantidad * precio_unitario)</code> y ejecutar <code>GROUP BY</code> requiriendo un <code>INNER JOIN</code> entre <code>pedido</code> y <code>detalle_pedido</code>. En MongoDB, al tener <code>total</code> persistido como redundancia auditada, se lee directamente del documento en un solo acceso.<br>
-      &bull; <i>En la consulta c):</i> PostgreSQL requiere obligatoriamente dos <code>INNER JOIN</code> uniendo 3 tablas (<code>pedido</code>, <code>detalle_pedido</code> y <code>producto</code>) para asociar el nombre y el ítem. En MongoDB, alcanza con un <code>find({"lineas.id_producto": 1})</code> directo, aprovechando la indexación del arreglo embebido.
+<div class="highlight-box">
+<b>2. Eliminación de Joins y Complejidad de Consulta:</b><br/>
+      • <i>En la consulta b):</i> PostgreSQL debe computar <code>SUM(cantidad * precio_unitario)</code> y ejecutar <code>GROUP BY</code> requiriendo un <code>INNER JOIN</code> entre <code>pedido</code> y <code>detalle_pedido</code>. En MongoDB, al tener <code>total</code> persistido como redundancia auditada, se lee directamente del documento en un solo acceso.<br/>
+      • <i>En la consulta c):</i> PostgreSQL requiere obligatoriamente dos <code>INNER JOIN</code> uniendo 3 tablas (<code>pedido</code>, <code>detalle_pedido</code> y <code>producto</code>) para asociar el nombre y el ítem. En MongoDB, alcanza con un <code>find({"lineas.id_producto": 1})</code> directo, porque las líneas están embebidas en el pedido.
     </div>
-
-    <div class='highlight-box'>
-      <b>3. Ausencia de Borrado Lógico:</b><br>
+<div class="highlight-box">
+<b>3. Ausencia de Borrado Lógico:</b><br/>
       Se ratifica que ninguna tabla de pedidos o detalles en <code>bd2_tp3</code> cuenta con atributos de baja lógica; los 8 pedidos reflejan operaciones en firme.
     </div>
-  </div>
-  <div class='footer-box'>
-    <div>TP 7 — Migración a MongoDB (Food Store) · Consigna 5</div>
-    <div>Página 4 de 5</div>
-  </div>
+</section><section class="chapter"><h2><span>Consignas 6 y 7: Inteligencia Artificial y Conclusión Técnica (Hernán González)</span><small>consigna6_ia_contraste.md · prueba_indice_unico_ia.js</small></h2>
+
+<div class="section-title">Consigna 6: Consulta a la IA y Contraste Crítico</div>
+<p><b>Prompt a la IA:</b> Se formuló un prompt explicitando: 1) Modelo relacional (4 tablas normalizadas en 3FN con <code>UNIQUE(id_pedido, id_producto)</code>); 2) Patrón de acceso frecuente a pedidos completos; y 3) Necesidad de mantener coherentes precios y cantidades con precio congelado R4.</p>
+<p><b>Respuesta resumida de la IA:</b> Recomendó embeber cliente (parcial) y líneas (en arreglo); congelar <code>precio_unitario</code> como escalar; crear un índice único <code>{"lineas.id_producto": 1}</code> para evitar productos repetidos en el pedido; y guardar <code>subtotal</code> y <code>total</code> con punto flotante.</p>
+<div class="subsection-title">Contraste Crítico 1: Restricción de Unicidad de Productos dentro del Pedido</div>
+<div class="alert-box">
+<b>Afirmación IA:</b> <i>'Crear un índice único sobre el arreglo embebido: db.pedidos.createIndex({"lineas.id_producto": 1}, {unique: true})'.</i><br/>
+<b>Veredicto:</b> <span class="badge badge-danger">FALSO / ALUCINACIÓN CRÍTICA</span>.<br/>
+<b>Contraste oficial y evidencia de laboratorio (prueba_indice_unico_ia.js):</b> La documentación oficial de MongoDB (<i>Unique Indexes - Unique Constraint Across Separate Documents</i>) aclara que un índice único impide valores idénticos <b>entre documentos distintos</b>, pero <b>no dentro de los elementos de un mismo arreglo</b>. Se ejecutó la prueba en <code>mongosh</code> confirmando ambas consecuencias catastróficas:<br/>
+      1. <i>Falso positivo de integridad:</i> Un pedido con dos líneas del producto 1 fue <b>ACEPTADO</b> (no impide el duplicado interno).<br/>
+      2. <i>Bloqueo del sistema:</i> Un segundo pedido legítimo con el producto 1 fue <b>RECHAZADO con error E11000</b> (impide que otros clientes compren ese producto).<br/>
+<b>Solución del equipo:</b> Validación de esquema con <code>$jsonSchema</code> y <code>$expr</code> usando <code>$setUnion</code> (código en página 2).
+    </div>
+<div class="subsection-title">Contraste Crítico 2: Precisión Monetaria y Persistencia de Totales</div>
+<div class="highlight-box">
+<b>Afirmación IA:</b> <i>'Guardar subtotal y total calculados con números estándar de punto flotante para acelerar lecturas'.</i><br/>
+<b>Veredicto:</b> <span class="badge badge-warning">PARCIALMENTE CORRECTA</span>.<br/>
+      • <b>Lo incorrecto:</b> Usar coma flotante estándar. La documentación oficial (<i>Model Monetary Data</i>) exige <b>Decimal128</b> para evitar imprecisiones de redondeo binario acumulativo. Se persistió con <code>NumberDecimal</code>.<br/>
+      • <b>Lo correcto:</b> Guardar el <code>total</code> es válido como redundancia controlada si se audita. Como MongoDB no posee triggers relacionales, la aplicación garantiza la coherencia y un pipeline de agregación audita que <code>total = suma_lineas</code> (0 discrepancias). El subtotal se omite para evitar redundancia transitiva (se calcula con <code>$multiply</code>).
+    </div>
+<div class="section-title">Consigna 7: Conclusión Técnica y Justificación de la Migración</div>
+<div style="background: #f8fafc; border: 1.5px solid #0284c7; border-radius: 4px; padding: 6px 10px;  line-height: 1.3;">
+<p><b>Para Food Store conviene combinar ambos motores: mantener PostgreSQL como sistema de registro y usar MongoDB para consultar pedidos completos.</b></p>
+<p>El primer criterio es el <b>patrón de acceso y la localidad de datos</b>. La operación más frecuente es leer el pedido completo. Con cliente y líneas embebidos, MongoDB lo devuelve en una sola lectura, mientras que PostgreSQL necesita dos JOIN entre tres tablas para la consulta c). Como cada pedido tiene pocas líneas (1 a 6), el documento no crece sin límite.</p>
+<p>El segundo criterio es la <b>integridad</b>. PostgreSQL garantiza de forma declarativa las claves foráneas, <code>UNIQUE(id_pedido, id_producto)</code> y los <code>CHECK</code> de cantidad y precio. En MongoDB hubo que reconstruir esas reglas con un validador (<code>$jsonSchema</code> y <code>$setUnion</code>), y el total guardado es una redundancia que la aplicación debe mantener y auditar (dio 0 descuadres). Catálogo, stock y clientes cambian seguido y se relacionan entre sí, algo que el modelo relacional resuelve mejor.</p>
+<p>Por eso no conviene reemplazar PostgreSQL: los pedidos se registran allí y se copian a MongoDB como documentos cerrados, con el precio histórico congelado (R4). Así se aprovecha la lectura rápida sin perder las garantías del motor relacional.</p>
+<p style="text-align: right;  color: #64748b; margin-top: 2px;">191 palabras</p>
 </div>
-
-<!-- ================= PAGE 5 ================= -->
-<div class='page'>
-  <div>
-    <div class='header-box'>
-      <div>
-        <div class='inst'>UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
-        <div class='tp-title'>Consignas 6 y 7: Inteligencia Artificial y Conclusión Técnica (Hernán González)</div>
-      </div>
-      <div style='text-align: right; font-size: 7pt; color: #64748b;'>consigna6_ia_contraste.md · prueba_indice_unico_ia.js</div>
-    </div>
-
-    <div class='section-title'>Consigna 6: Consulta a la IA y Contraste Crítico</div>
-    <p><b>Prompt a la IA:</b> Se formuló un prompt explicitando: 1) Modelo relacional (4 tablas normalizadas en 3FN con <code>UNIQUE(id_pedido, id_producto)</code>); 2) Patrón de acceso frecuente a pedidos completos; y 3) Necesidad de mantener coherentes precios y cantidades con precio congelado R4.</p>
-    <p><b>Respuesta resumida de la IA:</b> Recomendó embeber cliente (parcial) y líneas (en arreglo); congelar <code>precio_unitario</code> como escalar; crear un índice único <code>{"lineas.id_producto": 1}</code> para evitar productos repetidos en el pedido; y guardar <code>subtotal</code> y <code>total</code> con punto flotante.</p>
-
-    <div class='subsection-title'>Contraste Crítico 1: Restricción de Unicidad de Productos dentro del Pedido</div>
-    <div class='alert-box'>
-      <b>Afirmación IA:</b> <i>'Crear un índice único sobre el arreglo embebido: db.pedidos.createIndex({"lineas.id_producto": 1}, {unique: true})'.</i><br>
-      <b>Veredicto:</b> <span class='badge badge-danger'>FALSO / ALUCINACIÓN CRÍTICA</span>.<br>
-      <b>Contraste oficial y evidencia de laboratorio (prueba_indice_unico_ia.js):</b> La documentación oficial de MongoDB (<i>Unique Indexes - Unique Constraint Across Separate Documents</i>) aclara que un índice único impide valores idénticos <b>entre documentos distintos</b>, pero <b>no dentro de los elementos de un mismo arreglo</b>. Se ejecutó la prueba en <code>mongosh</code> confirmando ambas consecuencias catastróficas:<br>
-      1. <i>Falso positivo de integridad:</i> Un pedido con dos líneas del producto 1 fue <b>ACEPTADO</b> (no impide el duplicado interno).<br>
-      2. <i>Bloqueo del sistema:</i> Un segundo pedido legítimo con el producto 1 fue <b>RECHAZADO con error E11000</b> (impide que otros clientes compren ese producto).<br>
-      <b>Solución del equipo:</b> Validación de esquema con <code>$jsonSchema</code> y <code>$expr</code> usando <code>$setUnion</code> (código en página 2).
-    </div>
-
-    <div class='subsection-title'>Contraste Crítico 2: Precisión Monetaria y Persistencia de Totales</div>
-    <div class='highlight-box'>
-      <b>Afirmación IA:</b> <i>'Guardar subtotal y total calculados con números estándar de punto flotante para acelerar lecturas'.</i><br>
-      <b>Veredicto:</b> <span class='badge badge-warning'>PARCIALMENTE CORRECTA</span>.<br>
-      &bull; <b>Lo incorrecto:</b> Usar coma flotante estándar. La documentación oficial (<i>Model Monetary Data</i>) exige <b>Decimal128</b> para evitar imprecisiones de redondeo binario acumulativo. Se persistió con <code>NumberDecimal</code>.<br>
-      &bull; <b>Lo correcto:</b> Guardar el <code>total</code> es válido como redundancia controlada si se audita. Como MongoDB no posee triggers relacionales, la aplicación garantiza la coherencia y un pipeline de agregación audita que <code>total = suma_lineas</code> (0 discrepancias). El subtotal se omite para evitar redundancia transitiva (se calcula con <code>$multiply</code>).
-    </div>
-
-    <div class='section-title'>Consigna 7: Conclusión Técnica y Justificación de la Migración</div>
-    <div style='background: #f8fafc; border: 1.5px solid #0284c7; border-radius: 4px; padding: 6px 10px; font-size: 7.6pt; line-height: 1.3;'>
-      <p><b>Para Food Store conviene combinar ambos motores: mantener PostgreSQL como sistema de registro y usar MongoDB para consultar pedidos completos.</b></p>
-      <p>El primer criterio es el <b>patrón de acceso y la localidad de datos</b>. La operación más frecuente es leer el pedido completo. Con cliente y líneas embebidos, MongoDB lo devuelve en una sola lectura, mientras que PostgreSQL necesita dos JOIN entre tres tablas para la consulta c). Como cada pedido tiene pocas líneas (1 a 6), el documento no crece sin límite.</p>
-      <p>El segundo criterio es la <b>integridad</b>. PostgreSQL garantiza de forma declarativa las claves foráneas, <code>UNIQUE(id_pedido, id_producto)</code> y los <code>CHECK</code> de cantidad y precio. En MongoDB hubo que reconstruir esas reglas con un validador (<code>$jsonSchema</code> y <code>$setUnion</code>), y el total guardado es una redundancia que la aplicación debe mantener y auditar (dio 0 descuadres). Catálogo, stock y clientes cambian seguido y se relacionan entre sí, algo que el modelo relacional resuelve mejor.</p>
-      <p>Por eso no conviene reemplazar PostgreSQL: los pedidos se registran allí y se copian a MongoDB como documentos cerrados, con el precio histórico congelado (R4). Así se aprovecha la lectura rápida sin perder las garantías del motor relacional.</p>
-      <p style='text-align: right; font-size: 6.8pt; color: #64748b; margin-top: 2px;'>191 palabras</p>
-    </div>
-  </div>
-  <div class='footer-box'>
-    <div>TP 7 — Migración a MongoDB (Food Store) · Consignas 6 y 7</div>
-    <div>Página 5 de 5</div>
-  </div>
-</div>
-
-</body>
-</html>
+</section></main></body></html>
