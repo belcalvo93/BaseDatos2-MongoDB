@@ -5,8 +5,9 @@
 // Parte 1 — Consignas 2 y 3 (Elías Tello): base, colección, migración y reglas.
 // Parte 2 — Consigna 4 (Belén): consultas a–d, más abajo en este mismo archivo.
 //
-// Origen de los datos: base PostgreSQL bd2_tp3, pedidos 1, 2, 3, 4, 5, 59428 y
-// 74364 (selección de la Consigna 1, ver seleccion_pedidos.sql). Los documentos
+// Origen de los datos: base PostgreSQL bd2_tp3, pedidos 1, 2, 3, 4, 5, 45018,
+// 59428 y 74364 (selección de la Consigna 1, ver seleccion_pedidos.sql). El
+// 45018 se sumó para tener un pedido de 1 sola línea. Los documentos
 // se generaron con un SELECT de solo lectura; no se tocó ningún ID, importe,
 // cantidad ni forma de pago.
 // ============================================================================
@@ -39,13 +40,17 @@
 //     join. El maestro de clientes sigue siendo la tabla cliente.
 //   - lineas (arreglo embebido): las líneas no existen fuera de su pedido
 //     (en PostgreSQL se borran en cascada), siempre se leen junto con él y
-//     son pocas (entre 2 y 6 por pedido), así que el documento no crece sin
+//     son pocas (entre 1 y 6 por pedido), así que el documento no crece sin
 //     límite. Así un pedido completo se lee en una sola operación.
 //   - nombre del producto dentro de la línea: es una copia del momento de la
 //     venta, igual que el precio; el catálogo (precio actual, categoría, stock)
 //     no se copia y se referencia por id_producto.
-//   - Subtotal y total NO se guardan: se calculan con $multiply y $sum, igual
-//     que en PostgreSQL (3FN), para que no puedan contradecir a las líneas.
+//   - total SÍ se guarda (Decimal128): se calcula en PostgreSQL ANTES de
+//     guardar (SUM(cantidad * precio_unitario)) y se copia al documento.
+//     Como MongoDB no tiene triggers, la coherencia la garantiza la
+//     aplicación: es una redundancia controlada que se audita con un
+//     aggregate que debe devolver 0 documentos (total != suma de líneas).
+//     El subtotal de cada línea no se guarda: se calcula con $multiply.
 //   Criterio de la documentación oficial de MongoDB: embeber datos que se
 //   consultan juntos y tienen relación de contención / uno-a-pocos
 //   (https://www.mongodb.com/docs/manual/data-modeling/embedding/).
@@ -76,11 +81,12 @@ db.createCollection("pedidos", {
       {
         $jsonSchema: {
           bsonType: "object",
-          required: ["_id", "fecha", "forma_pago", "cliente", "lineas"],
+          required: ["_id", "fecha", "forma_pago", "total", "cliente", "lineas"],
           properties: {
             _id: { bsonType: ["int", "long"] },
             fecha: { bsonType: "date" },
             forma_pago: { enum: ["EFECTIVO", "TARJETA", "TRANSFERENCIA"] },
+            total: { bsonType: "decimal", minimum: 0 },
             cliente: {
               bsonType: "object",
               required: ["id_cliente", "nombre"],
@@ -123,13 +129,14 @@ db.createCollection("pedidos", {
 });
 
 // ----------------------------------------------------------------------------
-// CONSIGNA 2 — Migración de los 7 pedidos (29 líneas)
+// CONSIGNA 2 — Migración de los 8 pedidos (30 líneas)
 // ----------------------------------------------------------------------------
 db.pedidos.insertMany([
   {
     _id: 1,
     fecha: ISODate("2026-08-01T13:15:00.000Z"),
     forma_pago: "EFECTIVO",
+    total: NumberDecimal("9987.91"),
     cliente: { id_cliente: 1, nombre: "Ana Gutiérrez", email: "ana.gutierrez@example.com" },
     lineas: [
       { id_producto: 1, nombre: "Pan de campo 1kg", cantidad: 2, precio_unitario: NumberDecimal("2200.00") },
@@ -143,6 +150,7 @@ db.pedidos.insertMany([
     _id: 2,
     fecha: ISODate("2026-08-03T21:40:00.000Z"),
     forma_pago: "TARJETA",
+    total: NumberDecimal("19036.35"),
     cliente: { id_cliente: 2, nombre: "Bruno Salinas", email: "bruno.salinas@example.com" },
     lineas: [
       { id_producto: 3, nombre: "Agua mineral 2L", cantidad: 3, precio_unitario: NumberDecimal("1400.00") },
@@ -157,6 +165,7 @@ db.pedidos.insertMany([
     _id: 3,
     fecha: ISODate("2026-08-07T12:05:00.000Z"),
     forma_pago: "TRANSFERENCIA",
+    total: NumberDecimal("15453.62"),
     cliente: { id_cliente: 1, nombre: "Ana Gutiérrez", email: "ana.gutierrez@example.com" },
     lineas: [
       { id_producto: 2, nombre: "Medialunas x6", cantidad: 2, precio_unitario: NumberDecimal("3200.00") },
@@ -171,6 +180,7 @@ db.pedidos.insertMany([
     _id: 4,
     fecha: ISODate("2026-08-12T23:30:00.000Z"),
     forma_pago: "TARJETA",
+    total: NumberDecimal("16658.04"),
     cliente: { id_cliente: 3, nombre: "Carla Medina", email: "carla.medina@example.com" },
     lineas: [
       { id_producto: 8, nombre: "Aceite girasol 900ml", cantidad: 1, precio_unitario: NumberDecimal("4100.00") },
@@ -184,6 +194,7 @@ db.pedidos.insertMany([
     _id: 5,
     fecha: ISODate("2026-08-18T15:00:00.000Z"),
     forma_pago: "EFECTIVO",
+    total: NumberDecimal("4293.65"),
     cliente: { id_cliente: 4, nombre: "Diego Ferrari", email: "diego.ferrari@example.com" },
     lineas: [
       { id_producto: 4, nombre: "Gaseosa cola 2.25L", cantidad: 1, precio_unitario: NumberDecimal("3900.00") },
@@ -195,6 +206,7 @@ db.pedidos.insertMany([
     _id: 59428,
     fecha: ISODate("2025-05-08T10:01:17.854Z"),
     forma_pago: "TRANSFERENCIA",
+    total: NumberDecimal("7552.58"),
     cliente: { id_cliente: 22903, nombre: "Nombre4898 Apellido4898", email: "cliente4898@mail.com" },
     lineas: [
       { id_producto: 1, nombre: "Pan de campo 1kg", cantidad: 3, precio_unitario: NumberDecimal("2500.00") },
@@ -205,10 +217,21 @@ db.pedidos.insertMany([
     _id: 74364,
     fecha: ISODate("2026-02-27T12:13:59.787Z"),
     forma_pago: "TARJETA",
+    total: NumberDecimal("9489.63"),
     cliente: { id_cliente: 24222, nombre: "Nombre6217 Apellido6217", email: "cliente6217@mail.com" },
     lineas: [
       { id_producto: 1, nombre: "Pan de campo 1kg", cantidad: 3, precio_unitario: NumberDecimal("2500.00") },
       { id_producto: 35739, nombre: "Producto 728", cantidad: 3, precio_unitario: NumberDecimal("663.21") }
+    ]
+  },
+  {
+    _id: 45018,
+    fecha: ISODate("2025-05-23T06:26:12.027Z"),
+    forma_pago: "EFECTIVO",
+    total: NumberDecimal("1931.96"),
+    cliente: { id_cliente: 22550, nombre: "Nombre4545 Apellido4545", email: "cliente4545@mail.com" },
+    lineas: [
+      { id_producto: 35767, nombre: "Producto 756", cantidad: 2, precio_unitario: NumberDecimal("965.98") }
     ]
   }
 ]);
@@ -226,7 +249,44 @@ db.pedidos.aggregate([
       _id: 1,
       forma_pago: 1,
       cantidad_lineas: { $size: "$lineas" },
-      total_pedido: {
+      total: 1,
+      total_lineas: {
+        $sum: {
+          $map: {
+            input: "$lineas",
+            as: "l",
+            in: { $multiply: ["$$l.cantidad", "$$l.precio_unitario"] }
+          }
+        }
+      },
+      coincide: {
+        $eq: [
+          "$total",
+          {
+            $sum: {
+              $map: {
+                input: "$lineas",
+                as: "l",
+                in: { $multiply: ["$$l.cantidad", "$$l.precio_unitario"] }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  { $sort: { _id: 1 } }
+]).forEach(d => print(d._id + " | " + d.forma_pago + " | lineas=" + d.cantidad_lineas + " | total=" + d.total + " | suma_lineas=" + d.total_lineas + " | coincide=" + d.coincide));
+
+// ----------------------------------------------------------------------------
+// Verificación de integridad (criterio de clase): total guardado = suma de
+// cantidad * precio_unitario de sus líneas. Debe devolver 0 documentos.
+// ----------------------------------------------------------------------------
+const descuadrados = db.pedidos.aggregate([
+  {
+    $project: {
+      total: 1,
+      suma_lineas: {
         $sum: {
           $map: {
             input: "$lineas",
@@ -237,13 +297,15 @@ db.pedidos.aggregate([
       }
     }
   },
-  { $sort: { _id: 1 } }
-]).forEach(d => print(d._id + " | " + d.forma_pago + " | lineas=" + d.cantidad_lineas + " | total=" + d.total_pedido));
+  { $match: { $expr: { $ne: ["$total", "$suma_lineas"] } } }
+]).toArray();
+print("Pedidos con total distinto de la suma de líneas: " + descuadrados.length + " (esperado: 0)");
 
 // Prueba de R2: insertar un pedido con un producto repetido debe fallar.
 try {
   db.pedidos.insertOne({
     _id: 999999, fecha: new Date(), forma_pago: "EFECTIVO",
+    total: NumberDecimal("7500.00"),
     cliente: { id_cliente: 1, nombre: "Prueba" },
     lineas: [
       { id_producto: 1, nombre: "Pan de campo 1kg", cantidad: 1, precio_unitario: NumberDecimal("2500.00") },
