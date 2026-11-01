@@ -202,21 +202,21 @@
     <p>Se consolidó la estructura relacional dispersa en una única colección autocontenida llamada <b><code>foodstore.pedidos</code></b>, con cliente y detalle embebidos:</p>
     <div class='grid-2'>
       <div class='code-block'>{
-  "_id": 1,                                       // Conserva id_pedido original de PostgreSQL (_id = id_pedido)
-  "fecha": ISODate("2026-08-01T13:15:00.000Z"),   // Fecha en formato ISODate (UTC)
-  "forma_pago": "EFECTIVO",                       // Atributo de clasificación/estado ("EFECTIVO"|"TARJETA"|"TRANSFERENCIA")
-  "total": NumberDecimal("9987.91"),              // Total persistido como Decimal128 (redundancia auditada)
-  "cliente": {                                    // Objeto embebido (relación 1:1 con el pedido)
-    "id_cliente": 1,                              // ID conservado para trazabilidad
-    "nombre": "Ana Gutiérrez",                    // Nombre y apellido concatenados (corregido encoding UTF-8)
+  "_id": 1,                                      // = id_pedido
+  "fecha": ISODate("2026-08-01T13:15:00.000Z"),  // UTC
+  "forma_pago": "EFECTIVO",                      // "estado"
+  "total": NumberDecimal("9987.91"),             // auditado
+  "cliente": {                                   // embebido 1:1
+    "id_cliente": 1,
+    "nombre": "Ana Gutiérrez",
     "email": "ana.gutierrez@example.com"
   },
-  "lineas": [                                     // Arreglo de subdocumentos embebidos (1:N)
+  "lineas": [                                    // arreglo 1:N
     {
-      "id_producto": 1,                           // ID de producto conservado
-      "nombre": "Pan de campo 1kg",               // Nombre del producto al momento de la venta
-      "cantidad": 2,                              // Unidades vendidas (entero &gt;= 1)
-      "precio_unitario": NumberDecimal("2200.00") // R4: Precio histórico congelado (Decimal128)
+      "id_producto": 1,
+      "nombre": "Pan de campo 1kg",
+      "cantidad": 2,
+      "precio_unitario": NumberDecimal("2200.00")  // R4
     }
   ]
 }</div>
