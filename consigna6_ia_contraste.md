@@ -37,43 +37,13 @@ Reglas y requisitos del sistema:
 
 ## 2. Respuesta generada por la Inteligencia Artificial
 
-> ### *Respuesta de la IA:*
->
-> Para el escenario descrito en **Food Store**, donde el patrón de acceso preponderante es la lectura de pedidos completos y se requiere consistencia histórica, la mejor estrategia es un **modelo documental autocontenido mediante embebido (embedding)** dentro de una única colección `pedidos`.
->
-> #### 1. Estructura recomendada del documento
-> ```json
-> {
->   "_id": 1,
->   "fecha": "2026-08-01T13:15:00Z",
->   "forma_pago": "EFECTIVO",
->   "cliente": {
->     "id_cliente": 1,
->     "nombre": "Ana Gutiérrez",
->     "email": "ana.gutierrez@example.com"
->   },
->   "lineas": [
->     {
->       "id_producto": 1,
->       "nombre": "Pan de campo 1kg",
->       "cantidad": 2,
->       "precio_unitario": 2200.00,
->       "subtotal": 4400.00
->     }
->   ],
->   "total": 4400.00
-> }
-> ```
->
-> #### 2. Justificación de Embebido vs. Referencia
-> * **Cliente (Embebido 1:1 parcial):** Conviene embeber una copia denormalizada con los atributos de lectura frecuente (`id_cliente`, `nombre`, `email`). Al emitir una factura o detalle, se evita un `$lookup` costoso. La tabla maestra de clientes se mantiene en su propia colección para modificaciones de perfil.
-> * **Líneas de detalle (Embebido 1:N en arreglo):** La relación pedido-líneas tiene una cardinalidad baja y acotada (típicamente entre 1 y 20 renglones). Embeber las líneas dentro del arreglo `lineas` garantiza **localidad de datos** y **atomicidad a nivel de documento**.
->
-> #### 3. Integridad de precios y cantidades
-> * **Precio congelado (R4):** Al momento de insertar el pedido, la aplicación debe consultar el catálogo relacional y persistir el valor en `precio_unitario`. Al guardarse como un valor escalar dentro del subdocumento, queda automáticamente desacoplado de las variaciones del catálogo de productos.
-> * **Restricción de producto único en el pedido:** Para replicar la restricción `UNIQUE (id_pedido, id_producto)` de PostgreSQL, en MongoDB se debe crear un **índice único sobre el campo embebido**:
->   `db.pedidos.createIndex({ "lineas.id_producto": 1 }, { unique: true })`.
-> * **Cálculo de subtotal y total:** Se aconseja guardar los campos `subtotal` en cada línea y `total` en la raíz del documento calculados con números estándar de punto flotante para acelerar las lecturas en dashboards y reportes de facturación.
+- Recomienda una colección "pedidos" con cliente embebido (copia parcial: id, nombre, email) y líneas embebidas en un arreglo, por el acceso frecuente al pedido completo.
+
+- Para el precio histórico (R4), copiar precio_unitario al documento al momento de la venta.
+
+- Para no repetir un producto en el mismo pedido, propone `db.pedidos.createIndex({ "lineas.id_producto": 1 }, { unique: true })`.
+
+- Propone guardar subtotal por línea y total del pedido como números de punto flotante para acelerar lecturas.
 
 ---
 
@@ -89,8 +59,8 @@ A continuación se analizan críticamente dos afirmaciones específicas brindada
 
 * **Contraste con la Documentación Oficial de MongoDB:**  
   * **Veredicto:** **FALSO / ALUCINACIÓN TÉCNICA CRÍTICA.**
-  * **Fundamento oficial:** Según la documentación oficial de MongoDB (*Indexes -> Multikey Indexes -> Unique Multikey Indexes*):  
-    > *"A unique index on an array field enforces that no two documents in the collection have the same value for the indexed array field. It does NOT enforce uniqueness among the elements of an array within a single document."*
+  * **Fundamento oficial:** La documentación oficial (Unique Indexes, sección 'Unique Constraint Across Separate Documents': https://www.mongodb.com/docs/manual/core/index-unique/) indica que un índice único impide que documentos distintos tengan el mismo valor, y que en un índice multikey un mismo documento puede repetir valores dentro de su arreglo.
+  * **Evidencia de laboratorio:** Se probó en mongosh (prueba_indice_unico_ia.js, salida en evidencias/salida_prueba_indice_unico_ia.txt) sobre una colección aparte: Prueba 1, un pedido con el producto 1 repetido en dos líneas fue ACEPTADO (el índice no impide el duplicado interno). Prueba 2, un segundo pedido con el producto 1 fue RECHAZADO con error E11000 (el índice bloquea ventas legítimas). Se confirman las dos consecuencias descriptas.
   * **Consecuencia del error:** Si se aplicara la recomendación literal de la IA:
     1. **Falso positivo de integridad:** Un pedido individual podría contener `lineas: [{id_producto: 1}, {id_producto: 1}]` sin que el índice único lo impida, violando la regla de negocio.
     2. **Bloqueo masivo del sistema:** Como el índice único multikey aplica **entre documentos de la colección**, una vez que el cliente del pedido 1 compre el `id_producto: 1`, **ningún otro pedido en toda la historia de la base de datos podría volver a comprar el producto 1**, arrojando el error `E11000 duplicate key error collection`.
@@ -115,15 +85,9 @@ A continuación se analizan críticamente dos afirmaciones específicas brindada
   *"Se aconseja guardar los campos `subtotal` en cada línea y `total` en la raíz calculados con números estándar de punto flotante para acelerar las lecturas en dashboards y reportes."*
 
 * **Contraste con la Documentación Oficial y Decisiones de Arquitectura:**  
-  * **Veredicto:** **INCORRECTO / MALA PRÁCTICA EN MODELADO FINANCIERO.**
-  * **Fundamento oficial:**
-    1. **Pérdida de precisión monetaria:** La documentación oficial de MongoDB en la sección *Model Monetary Data* desaconseja enfáticamente utilizar tipos de coma flotante estándar de 64 bits (IEEE 754 `double` o `Number` genérico de JavaScript) debido a los errores acumulativos de redondeo binario (por ejemplo, `0.1 + 0.2 = 0.30000000000000004`). MongoDB especifica explícitamente el uso del tipo BSON **`Decimal128`** (`NumberDecimal`), que implementa el estándar IEEE 754-2008 de aritmética decimal de 128 bits con 34 dígitos de precisión.
-    2. **Riesgo de anomalía y desincronización (Inconsistencia de datos):** Guardar `subtotal` y `total` precalculados dentro del documento reintroduce redundancia innecesaria. Si una aplicación externa o una actualización parcial modifica la `cantidad` sin actualizar el `total`, el documento entra en estado corrupto e inconsistente.
-  * **Solución real implementada por el equipo:**  
-    En `consultas_mongodb.js`:
-    - Todos los precios históricos (`precio_unitario`) se persisten con tipado estricto `NumberDecimal("...")`.
-    - No se guardan ni `subtotal` ni `total` en el almacenamiento físico BSON (siguiendo el principio de Tercera Forma Normal adaptado a colecciones documentales).
-    - Los totales se computan en tiempo de lectura mediante el Aggregation Framework (`$sum` sobre el `$map` de `$multiply`), garantizando consistencia absoluta y coincidencia matemática al centavo con PostgreSQL (`SUM(cantidad * precio_unitario) = $82.471,78`).
+  * **Veredicto:** **PARCIALMENTE CORRECTA.**
+  * **Lo incorrecto:** usar punto flotante. La documentación oficial (Model Monetary Data: https://www.mongodb.com/docs/manual/tutorial/model-monetary-data/) recomienda Decimal128 para valores monetarios por los errores de redondeo binario. Por eso precio_unitario y total se guardan como NumberDecimal.
+  * **Lo correcto:** guardar el total es válido como redundancia controlada, siempre que tenga un mecanismo de verificación. Como MongoDB no tiene triggers, la coherencia la garantiza la aplicación: el total se calcula en PostgreSQL antes de guardar (SUM(cantidad * precio_unitario)) y se audita con un aggregate que busca pedidos con total distinto de la suma de líneas. Resultado: 0 documentos (evidencias/salida_migracion_y_verificacion.txt). El subtotal por línea no se guarda: se calcula con $multiply.
 
 ---
 

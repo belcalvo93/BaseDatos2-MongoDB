@@ -10,8 +10,9 @@ SELECT current_database();
 
 -- ----------------------------------------------------------------------------
 -- 1. Consulta principal: pedidos seleccionados con cliente, productos y líneas
---    IDs elegidos (7 pedidos, 29 líneas en total):
---    1, 2, 3, 4, 5, 59428, 74364
+--    IDs elegidos (8 pedidos, 30 líneas en total):
+--    1, 2, 3, 4, 5, 45018, 59428, 74364
+--    (45018 se agregó para tener un pedido de 1 sola línea)
 -- ----------------------------------------------------------------------------
 SELECT
     p.id_pedido,
@@ -32,7 +33,7 @@ INNER JOIN detalle_pedido dp
     ON dp.id_pedido = p.id_pedido
 INNER JOIN producto pr
     ON pr.id_producto = dp.id_producto
-WHERE p.id_pedido IN (1, 2, 3, 4, 5, 59428, 74364)
+WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)
 ORDER BY p.id_pedido, dp.id_producto;
 
 -- ----------------------------------------------------------------------------
@@ -52,7 +53,7 @@ INNER JOIN cliente c
     ON c.id_cliente = p.id_cliente
 INNER JOIN detalle_pedido dp
     ON dp.id_pedido = p.id_pedido
-WHERE p.id_pedido IN (1, 2, 3, 4, 5, 59428, 74364)
+WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)
 GROUP BY p.id_pedido, p.fecha, p.forma_pago, c.id_cliente, c.nombre, c.apellido
 ORDER BY p.id_pedido;
 
@@ -69,6 +70,7 @@ FROM (
         '_id', p.id_pedido,
         'fecha', to_char(p.fecha AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
         'forma_pago', p.forma_pago,
+        'total', SUM(dp.cantidad * dp.precio_unitario),
         'cliente', jsonb_build_object(
             'id_cliente', c.id_cliente,
             'nombre', c.nombre || ' ' || c.apellido,
@@ -91,6 +93,6 @@ FROM (
         ON dp.id_pedido = p.id_pedido
     INNER JOIN producto pr
         ON pr.id_producto = dp.id_producto
-    WHERE p.id_pedido IN (1, 2, 3, 4, 5, 59428, 74364)
+    WHERE p.id_pedido IN (1, 2, 3, 4, 5, 45018, 59428, 74364)
     GROUP BY p.id_pedido, p.fecha, p.forma_pago, c.id_cliente, c.nombre, c.apellido, c.email
 ) sub;

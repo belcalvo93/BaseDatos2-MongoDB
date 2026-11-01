@@ -1,0 +1,40 @@
+Documentos en foodstore.pedidos: 8
+1 | EFECTIVO | lineas=5 | total=9987.91 | suma_lineas=9987.91 | coincide=true
+2 | TARJETA | lineas=6 | total=19036.35 | suma_lineas=19036.35 | coincide=true
+3 | TRANSFERENCIA | lineas=6 | total=15453.62 | suma_lineas=15453.62 | coincide=true
+4 | TARJETA | lineas=5 | total=16658.04 | suma_lineas=16658.04 | coincide=true
+5 | EFECTIVO | lineas=3 | total=4293.65 | suma_lineas=4293.65 | coincide=true
+45018 | EFECTIVO | lineas=1 | total=1931.96 | suma_lineas=1931.96 | coincide=true
+59428 | TRANSFERENCIA | lineas=2 | total=7552.58 | suma_lineas=7552.58 | coincide=true
+74364 | TARJETA | lineas=2 | total=9489.63 | suma_lineas=9489.63 | coincide=true
+Pedidos con total distinto de la suma de líneas: 0 (esperado: 0)
+OK R2: rechazado el pedido con producto repetido (código 121: Document failed validation)
+
+--- Consulta a) Todos los pedidos ---
+1 | EFECTIVO
+2 | TARJETA
+3 | TRANSFERENCIA
+4 | TARJETA
+5 | EFECTIVO
+45018 | EFECTIVO
+59428 | TRANSFERENCIA
+74364 | TARJETA
+Cantidad: 8
+
+--- Consulta b) Pedidos con forma_pago = EFECTIVO ---
+1 | 2026-08-01T13:15:00.000Z | EFECTIVO | 9987.91
+5 | 2026-08-18T15:00:00.000Z | EFECTIVO | 4293.65
+45018 | 2025-05-23T06:26:12.027Z | EFECTIVO | 1931.96
+Cantidad: 3
+
+--- Consulta c) Pedidos que contienen id_producto = 1 ---
+1 | EFECTIVO | Pan de campo 1kg | cantidad=2 | precio_unitario=2200.00
+59428 | TRANSFERENCIA | Pan de campo 1kg | cantidad=3 | precio_unitario=2500.00
+74364 | TARJETA | Pan de campo 1kg | cantidad=3 | precio_unitario=2500.00
+Cantidad: 3
+
+--- Consulta d) Pedidos con total > 10000 (desc) ---
+2 | TARJETA | 19036.35
+4 | TARJETA | 16658.04
+3 | TRANSFERENCIA | 15453.62
+Cantidad: 3

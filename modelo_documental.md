@@ -33,6 +33,7 @@ Para pasar del modelo relacional normalizado (4 tablas unidas mediante `INNER JO
   _id: <Number>,                 // Conserva el id_pedido original de PostgreSQL (_id = id_pedido)
   fecha: <ISODate>,              // Fecha y hora de emisión del pedido
   forma_pago: <String>,          // "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" (decisión de diseño)
+  total: <Decimal128>,           // = SUM(cantidad * precio_unitario), calculado en PostgreSQL ANTES de guardar
   cliente: {                     // OBJETO EMBEBIDO (1:1 con el pedido)
     id_cliente: <Number>,        // Conserva el id_cliente original de PostgreSQL
     nombre: <String>,            // Nombre y apellido concatenados ("nombre apellido")
@@ -43,7 +44,7 @@ Para pasar del modelo relacional normalizado (4 tablas unidas mediante `INNER JO
       id_producto: <Number>,     // Conserva el id_producto original de PostgreSQL
       nombre: <String>,          // Nombre del producto al momento de exportar
       cantidad: <Number>,        // Unidades vendidas en esa línea (cantidad > 0)
-      precio_unitario: <Number>  // Precio histórico congelado de detalle_pedido (R4)
+      precio_unitario: <Decimal128>  // Precio histórico congelado de detalle_pedido (R4)
     }
   ]
 }
@@ -57,8 +58,10 @@ Para pasar del modelo relacional normalizado (4 tablas unidas mediante `INNER JO
 2. **Uso de `forma_pago` como atributo de estado/clasificación del pedido:**
    * En el DDL oficial del proyecto (`food-store/schema.sql` y base `bd2_tp3`), la tabla `pedido` **no posee una columna `estado`**, sino la columna `forma_pago` definida sobre el tipo enumerado `forma_pago_enum` (`'EFECTIVO'`, `'TARJETA'`, `'TRANSFERENCIA'`).
    * Se deja documentada como decisión de diseño del equipo utilizar `forma_pago` como campo equivalente en el documento raíz y en los filtros de selección y consulta (Consigna 4.b).
-3. **El subtotal y el total no se almacenan:**
-   * Ni el subtotal de cada renglón ni el total de la cabecera se guardan como campos fijos dentro del documento. Ambos se calculan en las consultas mediante `cantidad * precio_unitario` (`$multiply` y `$sum`), evitando posibles inconsistencias entre los renglones del arreglo `lineas[]` y un valor precalculado.
+3. **El total se almacena; el subtotal no:**
+   * El total del pedido se calcula en PostgreSQL antes de guardar el documento y se copia como `Decimal128`.
+   * Como MongoDB no tiene triggers, la coherencia la garantiza la aplicación: es una redundancia controlada que se audita con un aggregate que debe devolver 0 documentos (total distinto de la suma de `cantidad * precio_unitario`).
+   * El subtotal de cada línea no se guarda: se calcula en las consultas con `$multiply`.
 
 ### Ejemplo de documento real (`_id: 1`) con anotaciones de estructura
 
@@ -68,6 +71,7 @@ Para pasar del modelo relacional normalizado (4 tablas unidas mediante `INNER JO
   "_id": 1,
   "fecha": ISODate("2026-08-01T13:15:00Z"),
   "forma_pago": "EFECTIVO",
+  "total": NumberDecimal("9987.91"),
 
   // [OBJETO EMBEBIDO] Datos del cliente asociados al pedido (conserva cliente.id_cliente = 1)
   "cliente": {
@@ -117,11 +121,11 @@ Para pasar del modelo relacional normalizado (4 tablas unidas mediante `INNER JO
 
 ## 3. Selección de pedidos desde `bd2_tp3`
 
-Se seleccionaron **7 pedidos reales** de la base `bd2_tp3` (29 líneas de detalle en total):
+Se seleccionaron **8 pedidos reales** de la base `bd2_tp3` (30 líneas de detalle en total):
 
-$$\text{IDs seleccionados: } \mathbf{1,\ 2,\ 3,\ 4,\ 5,\ 59428,\ 74364}$$
+$$\text{IDs seleccionados: } \mathbf{1,\ 2,\ 3,\ 4,\ 5,\ 45018,\ 59428,\ 74364}$$
 
-### Tabla resumen de los 7 pedidos elegidos
+### Tabla resumen de los 8 pedidos elegidos
 
 | `id_pedido` (`_id`) | `fecha` (UTC) | `forma_pago` | `id_cliente` | Cliente (`nombre`) | Cantidad de líneas | Total calculado (`SUM(cantidad * precio_unitario)`) | IDs de productos en `lineas[]` |
 | :---: | :---: | :---: | :---: | :--- | :---: | :---: | :--- |
@@ -130,30 +134,31 @@ $$\text{IDs seleccionados: } \mathbf{1,\ 2,\ 3,\ 4,\ 5,\ 59428,\ 74364}$$
 | **3** | `2026-08-07 12:05:00+00` | `TRANSFERENCIA` | `1` | Ana Gutiérrez | 6 | `$15.453,62` | `2`, `6`, `67973`, `71591`, `71682`, `72234` |
 | **4** | `2026-08-12 23:30:00+00` | `TARJETA` | `3` | Carla Medina | 5 | `$16.658,04` | `8`, `9`, `66290`, `68909`, `81323` |
 | **5** | `2026-08-18 15:00:00+00` | `EFECTIVO` | `4` | Diego Ferrari | 3 | `$4.293,65` | `4`, `75467`, `80098` |
+| **45018** | `2025-05-23 06:26:12+00` | `EFECTIVO` | `22550` | Nombre4545 Apellido4545 | 1 | `$1.931,96` | `35767` |
 | **59428** | `2025-05-08 10:01:17+00` | `TRANSFERENCIA` | `22903` | Nombre4898 Apellido4898 | 2 | `$7.552,58` | **`1`**, `64780` |
 | **74364** | `2026-02-27 12:13:59+00` | `TARJETA` | `24222` | Nombre6217 Apellido6217 | 2 | `$9.489,63` | **`1`**, `35739` |
-| **Total (7 pedidos)** | — | — | — | — | **29 líneas** | **`$82.471,78`** | — |
+| **Total (8 pedidos)** | — | — | — | — | **30 líneas** | **`$84.403,74`** | — |
 
 ### Verificación de los criterios de selección
 
-1. **Rango de cantidad (entre 5 y 8 pedidos):** Se eligieron **7 pedidos** (los 5 pedidos iniciales del lote semilla con nombres reales más 2 pedidos de la carga masiva de `bd2_tp3`).
+1. **Rango de cantidad (entre 5 y 8 pedidos):** Se eligieron **8 pedidos** (los 5 pedidos iniciales del lote semilla con nombres ficticios legibles más 3 pedidos de la carga masiva de `bd2_tp3`). El pedido 45018 se agregó para tener un pedido de 1 sola línea.
 2. **Al menos 2 formas de pago distintas (para la consulta 4.b):** Están presentes las **3 formas de pago** posibles:
-   * `EFECTIVO`: 2 pedidos (`1`, `5`).
+   * `EFECTIVO`: 3 pedidos (`1`, `5`, `45018`).
    * `TARJETA`: 3 pedidos (`2`, `4`, `74364`).
    * `TRANSFERENCIA`: 2 pedidos (`3`, `59428`).
 3. **Al menos un producto repetido en 2 o más pedidos (para la consulta 4.c y regla R4):**
    * El producto **`id_producto = 1` (`Pan de campo 1kg`)** aparece en **3 de los pedidos seleccionados**: `1`, `59428` y `74364` (con 2 unidades en el pedido `1`, 3 unidades en el `59428` y 3 unidades en el `74364`, sumando 8 unidades vendidas en total dentro del subconjunto migrado).
    * Además, permite verificar empíricamente la regla de negocio **R4 (precio histórico congelado)**: en el pedido `1` tiene `precio_unitario = 2200.00`, mientras que en los pedidos `59428` y `74364` tiene `precio_unitario = 2500.00`.
 4. **Pedidos con 2 o más líneas y totales variados (para la consulta 4.d):**
-   * Todos los pedidos tienen entre **2 y 6 líneas**.
-   * Los importes totales cubren un rango amplio desde **`$4.293,65`** (pedido `5`) hasta **`$19.036,35`** (pedido `2`), con un **promedio de `$11.781,68`** por pedido.
-   * Si en la consulta 4.d se utiliza como umbral un monto cercano al promedio (por ejemplo `$10.000,00` o `$11.781,68`), el filtro divide limpiamente el lote en **3 pedidos que superan el umbral** (`2`, `3` y `4`) y **4 pedidos por debajo** (`1`, `5`, `59428` y `74364`).
+   * Los pedidos tienen entre **1 y 6 líneas**.
+   * Los importes totales cubren un rango amplio desde **`$1.931,96`** (pedido `45018`) hasta **`$19.036,35`** (pedido `2`), con un **promedio de `$10.550,47`** por pedido.
+   * Si en la consulta 4.d se utiliza como umbral un monto cercano al promedio (por ejemplo `$10.000,00`), el filtro divide limpiamente el lote en **3 pedidos que superan el umbral** (`2`, `3` y `4`) y **5 pedidos por debajo** (`1`, `5`, `45018`, `59428` y `74364`).
 
 ---
 
-## 4. Detalle completo de las 29 líneas exportadas (`seleccion_pedidos.sql`)
+## 4. Detalle completo de las 30 líneas exportadas (`seleccion_pedidos.sql`)
 
-La consulta SQL de extracción se encuentra en el archivo [`seleccion_pedidos.sql`](./seleccion_pedidos.sql). A continuación se transcribe el resultado exacto de las 29 filas en `bd2_tp3` para facilitar el armado del `insertMany()` y el control cruzado:
+La consulta SQL de extracción se encuentra en el archivo [`seleccion_pedidos.sql`](./seleccion_pedidos.sql). A continuación se transcribe el resultado exacto de las 30 filas en `bd2_tp3` para facilitar el armado del `insertMany()` y el control cruzado:
 
 | `id_pedido` | `forma_pago` | `id_cliente` | `cliente_nombre` | `id_producto` | `producto_nombre` | `cantidad` | `precio_unitario` | `subtotal_linea` |
 | :---: | :---: | :---: | :--- | :---: | :--- | :---: | :---: | :---: |
@@ -182,6 +187,7 @@ La consulta SQL de extracción se encuentra en el archivo [`seleccion_pedidos.sq
 | 5 | `EFECTIVO` | 4 | Diego Ferrari | 4 | Gaseosa cola 2.25L | 1 | 3900.00 | 3900.00 |
 | 5 | `EFECTIVO` | 4 | Diego Ferrari | 75467 | Producto 40456 | 1 | 281.07 | 281.07 |
 | 5 | `EFECTIVO` | 4 | Diego Ferrari | 80098 | Producto 45087 | 2 | 56.29 | 112.58 |
+| 45018 | `EFECTIVO` | 22550 | Nombre4545 Apellido4545 | 35767 | Producto 756 | 2 | 965.98 | 1931.96 |
 | 59428 | `TRANSFERENCIA` | 22903 | Nombre4898 Apellido4898 | 1 | Pan de campo 1kg | 3 | 2500.00 | 7500.00 |
 | 59428 | `TRANSFERENCIA` | 22903 | Nombre4898 Apellido4898 | 64780 | Producto 29769 | 2 | 26.29 | 52.58 |
 | 74364 | `TARJETA` | 24222 | Nombre6217 Apellido6217 | 1 | Pan de campo 1kg | 3 | 2500.00 | 7500.00 |
