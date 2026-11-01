@@ -64,3 +64,15 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 **Qué se descartó:** en la vista `v_catalogo_disponible`, OpenCode cambió `precio_centavos / 100.0 AS precio` por `printf('%d.%02d', …)` para que "no aparezca ningún REAL". Se descartó: la regla de centavos INTEGER es para **guardar** precios; la vista no guarda nada, solo muestra un valor calculado desde un entero exacto. Además, el cambio se apartaba del apunte (parada 3) y del `design.md`. Se volvió a la versión del apunte.
 
 **Cómo se comprobó:** se corrió el script dos veces seguidas sin error; `PRAGMA integrity_check` dio `ok`; `pragma_table_list` mostró `strict = 1` en las 5 tablas.
+
+---
+
+## Entrada 5 · 01/11/2026 · Belén Calvo · OpenCode (agente Build)
+
+**Qué se pidió:** generar `food-store/movil/pruebas_sqlite.sql` a partir de la Tarea 4: borrador con COMMIT, borrador con ROLLBACK, C1 y C7 con conteos antes y después.
+
+**Qué se aceptó:** las 5 pruebas tal como se pidieron; los 3 productos inventados (uno disponible, uno sin stock y una lápida con `disponible_visto = 1` a propósito, para comprobar que el filtro por `eliminado` funciona solo); el `ROLLBACK` explícito después de cada error del C7, con el comentario que explica por qué.
+
+**Qué se corrigió:** se eliminó una consulta `SELECT … WHERE 0` que no devolvía filas ni aportaba nada a la salida.
+
+**Cómo se comprobó:** se corrió sobre una base nueva (`pruebas.db`) con `schema_sqlite.sql`. Resultado en `food-store/evidencias/salida_pruebas_sqlite.txt`: 1/1/1 tras el COMMIT; antes = después en el ROLLBACK y en el C7; el catálogo muestra solo el producto 900001; aparecen solo los dos errores esperados (CHECK y FOREIGN KEY) y el script llega al final.
