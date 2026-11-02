@@ -76,3 +76,34 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 **Qué se corrigió:** se eliminó una consulta `SELECT … WHERE 0` que no devolvía filas ni aportaba nada a la salida.
 
 **Cómo se comprobó:** se corrió sobre una base nueva (`pruebas.db`) con `schema_sqlite.sql`. Resultado en `food-store/evidencias/salida_pruebas_sqlite.txt`: 1/1/1 tras el COMMIT; antes = después en el ROLLBACK y en el C7; el catálogo muestra solo el producto 900001; aparecen solo los dos errores esperados (CHECK y FOREIGN KEY) y el script llega al final.
+
+---
+
+## Entrada 6 · 01/11/2026 · Bruno Fiouchetta · Gemini (Antigravity) + OpenCode (agente Plan)
+
+**Qué se pidió:** redactar el punto 3.b (`food-store/docs/3b_plan_mantenimiento.md`) como agregado al plan de la Unidad 6 (`SPEC_U6.md`, `backup_foodstore.sh` y `restore_test.sh`), respondiendo qué se respalda en los tres motores y cómo se prueba la restauración, qué hacen las tablets si se restaura un respaldo viejo de PostgreSQL y cada cuánto y quién revisa las solicitudes en `CONFLICTO` o `RECHAZADO`.
+
+**Qué se aceptó:** la integración de los tres motores apoyada en los scripts reales de la Unidad 6 (`backup_foodstore.sh` con `pg_dump -Fc` y archivo `.conteo`, `restore_test.sh` sobre `foodstore_restore_test`), el procedimiento ante un respaldo viejo del servidor (publicar una nueva instantánea `v_snapshot_movil`, recargar `producto_cache` con `importar_catalogo.sql` y volver a evaluar las solicitudes) y la separación de responsabilidades entre el vendedor (en la feria, junto al cliente, para `CONFLICTO` y `RECHAZADO`) y el responsable de operaciones (cierre diario antes del backup nocturno).
+
+**Qué se descartó:** no se propuso respaldar `producto_cache` ni `snapshot_servidor` de SQLite, porque son copias derivadas cuya fuente de verdad es PostgreSQL y se regeneran desde `v_snapshot_movil`; en la tablet solo importa resguardar `pedido_borrador`, `item_borrador` y `cola_sync` cuando quedan envíos pendientes de cierre.
+
+**Cómo se comprobó:** se verificó contra `mantenimiento/SPEC_U6.md` y `mantenimiento/restore_test.sh` en el repositorio `base-datos-2` que los nombres de scripts, archivos `.conteo`, base descartable `foodstore_restore_test` y métricas (`RPO = 24 h`, `RTO = 15 min`) coincidan exactamente con lo implementado y medido en la Unidad 6.
+
+---
+
+## Entrada 7 · 01/11/2026 · Bruno Fiouchetta · OpenCode (agente Plan) + Gemini (Antigravity)
+
+**Qué se pidió:** realizar el code review de los scripts de la cursada (punto 3.c, `food-store/docs/3c_code_review_ia.md`) revisando los repositorios `base-datos-2` (U1–U6) y `BaseDatos2-MongoDB` (U7–U8), consolidar la tabla de hallazgos con su decisión (`Corregido`, `Aceptado` o `Descartado`) y desarrollar 4 hallazgos de unidades distintas (U7, U6, U5/U3 y U8) con su comprobación en el motor.
+
+**Qué se aceptó:** la tabla de 10 hallazgos que recorre todas las unidades y el desarrollo de 4 casos verificados en motor:
+1. U7 (MongoDB): descarte del índice único multikey `{"lineas.id_producto": 1}` y reemplazo por `$jsonSchema` con `$expr` y `$setUnion`.
+2. U6 (PostgreSQL): inclusión de `usuario` en `maintenance.sql` y validación contra `.conteo` en `restore_test.sh`.
+3. U5/U3 (PostgreSQL): revocación de `INSERT, UPDATE` directo sobre `pedido` y `detalle_pedido` para `rol_app_escritura` (dejando solo `CALL registrar_pedido`) y bloqueo de reseteo de cuentas `ADMIN` en `fn_resetear_password`.
+4. U8 (SQLite): descarte de `printf` como texto en `v_catalogo_disponible` y de `UNIQUE(id_local)` total en `cola_sync`.
+
+**Qué se descartó:**
+- El hallazgo de OpenCode en U6 que marcaba como defecto que `health_check.sql` mostrara `n_live_tup = 0` tras `createdb -T`: se descartó porque ese `0` refleja el comportamiento real de PostgreSQL al clonar una base sin copiar estadísticas dinámicas y fue la señal que justificó correr `ANALYZE`.
+- La ejecución no interactiva de `opencode run --agent plan` desde una subshell sin TTY: como `opencode.json` tiene `"bash": { "*": "ask" }`, el comando espera confirmación interactiva y queda bloqueado; la revisión se apoya en las corridas en modo Plan y las comprobaciones directas en `psql`, `mongosh` y `sqlite3`.
+
+**Cómo se comprobó:** cada uno de los 4 hallazgos desarrollados cuenta con su evidencia de ejecución en el motor: `evidencias/salida_prueba_indice_unico_ia.txt` (`mongosh`, U7), `mantenimiento/evidencias/maintenance_salida.txt` y `restore_test_v2_salida.txt` (`psql`, U6), pruebas con `SET ROLE` dentro de `BEGIN … ROLLBACK` (`psql`, U5) y `food-store/evidencias/salida_pruebas_sqlite.txt` (`sqlite3`, U8).
+
