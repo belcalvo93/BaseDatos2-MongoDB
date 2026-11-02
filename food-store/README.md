@@ -93,7 +93,14 @@ Cada caso sigue el mismo flujo:
    ```
 5. Mirar `cola_sync` (el script la muestra al final) y explicar el resultado.
 
-El detalle de cada caso está en `postgresql/casos_servidor.sql` (bloque C).
+Para reproducir los casos C2 a C6 completos en forma automatizada (una vez creada `foodstore_movil.db` y cargada la instantánea inicial de los pasos 3 a 5):
+
+```bash
+psql -U postgres -d bd2_tp8 -f postgresql/casos_servidor.sql
+sqlite3 movil/foodstore_movil.db ".read movil/casos_sqlite.sql"
+```
+
+El detalle de cada caso y el mapa de los 3 motores están en `docs/2c_casos_y_3a_mapa.md`, y las salidas en `evidencias/salida_casos_servidor_postgresql.txt` y `evidencias/salida_casos_c2_c6_sqlite.txt`.
 
 ### 8. Consulta final en PostgreSQL
 
@@ -169,5 +176,7 @@ Al final: `PRAGMA foreign_key_check` sin filas y `PRAGMA integrity_check` = `ok`
 | `docs/1a_datos_que_viajan.md` | 1.a | Belén |
 | `docs/kiro/` | 4.a spec (requirements, design, tasks) | Belén |
 | `docs/bitacora_ia.md` | 4.b bitácora de IA | todos |
-| `postgresql/casos_servidor.sql` | 2.c casos C2–C6 y consulta final | Hernán |
+| `postgresql/casos_servidor.sql` | 2.c preparación en `bd2_tp8` y consulta inicial/final | Hernán |
+| `movil/casos_sqlite.sql` | 2.c ejecución de los casos C2–C6 en SQLite | Hernán |
+| `docs/2c_casos_y_3a_mapa.md` | 2.c explicación de casos C2–C6 y 3.a mapa de 3 motores | Hernán |
 | `docs/informe.pdf` | informe (máx. 6 páginas) | Hernán |
