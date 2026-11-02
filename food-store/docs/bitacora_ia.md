@@ -79,7 +79,27 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 
 ---
 
-## Entrada 6 · 01/11/2026 · Bruno Fiouchetta · Gemini (Antigravity) + OpenCode (agente Plan)
+## Entrada 6 · 01/11/2026 · Elías Tello · Claude Code
+
+**Qué se pidió:** a partir de las Tareas 1, 3, 5 y 7 de `tasks.md`, generar la vista `v_snapshot_movil` (`postgresql/10_snapshot_catalogo.sql`), la importación con upsert (`movil/importar_catalogo.sql`), el semáforo (`movil/semaforo.sql`) y el `README.md`, y proponer los productos fijos de los casos.
+
+**Qué se aceptó:** la vista con precio en centavos enteros y la lápida que viaja; el upsert al caché; el semáforo con `LEFT JOIN` y el chequeo explícito `s.producto_id IS NULL`; los productos fijos 3, 2, 11, 9 y 10.
+
+**Qué se corrigió:**
+- La spec decía `eliminado = NOT activo`. Con `\d categoria` se vio que `categoria` también tiene `activo`, y que Congelados está dada de baja. Se cambió a `eliminado = NOT p.activo OR NOT c.activo` (y lo mismo en `disponible`). Así 10048 productos viajan como lápidas en vez de 1.
+- Se agregaron dos casos borde que la spec no cubría: un borrador sin ítems queda `RECHAZADO` (si no, quedaba `PENDIENTE` para siempre) y, si no hay instantánea cargada, el semáforo no evalúa nada (si no, rechazaba todo como "producto inexistente").
+
+**Qué se descartó:** el primer control para que la vista no se cree en `bd2_tp3` era `SELECT CASE WHEN current_database() <> 'bd2_tp8' THEN 1/0 END`. Falló también en `bd2_tp8`: PostgreSQL calcula la constante `1/0` al planificar la consulta, aunque esa rama del `CASE` nunca se use. Se reemplazó por un bloque `DO` con `RAISE EXCEPTION`.
+
+**Cómo se comprobó:**
+- La vista: en `bd2_tp8` da 50011 filas, 10048 lápidas y 39963 disponibles. Corrida sobre `bd2_tp3` corta con el error del `RAISE`, y `pg_views` confirma que en `bd2_tp3` no quedó ninguna vista.
+- La importación: corrida dos veces seguidas da los mismos conteos (50011 / 50011 / 10048 / 39963).
+- El semáforo: en una base de prueba, con los cambios del servidor simulados sobre `snapshot_servidor`, dio `CONFLICTO`, `RECHAZADO` (stock, baja, no disponible, inexistente, sin ítems, rojo + amarillo) y `SIMULADO_APROBADO` con el motivo correcto. Corrido dos veces dio una salida idéntica. Un `solicitud_uuid` repetido y dos `PENDIENTE` del mismo borrador dieron error de `UNIQUE`. `PRAGMA integrity_check` dio `ok`.
+- El README: se siguió paso a paso desde una base de la tablet vacía.
+
+---
+
+## Entrada 7 · 01/11/2026 · Bruno Fiouchetta · Gemini (Antigravity) + OpenCode (agente Plan)
 
 **Qué se pidió:** redactar el punto 3.b (`food-store/docs/3b_plan_mantenimiento.md`) como agregado al plan de la Unidad 6 (`SPEC_U6.md`, `backup_foodstore.sh` y `restore_test.sh`), respondiendo qué se respalda en los tres motores y cómo se prueba la restauración, qué hacen las tablets si se restaura un respaldo viejo de PostgreSQL y cada cuánto y quién revisa las solicitudes en `CONFLICTO` o `RECHAZADO`.
 
@@ -91,19 +111,18 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 
 ---
 
-## Entrada 7 · 01/11/2026 · Bruno Fiouchetta · OpenCode (agente Plan) + Gemini (Antigravity)
+## Entrada 8 · 01/11/2026 · Bruno Fiouchetta · OpenCode (agente Plan) + Gemini (Antigravity)
 
 **Qué se pidió:** realizar el code review de los scripts de la cursada (punto 3.c, `food-store/docs/3c_code_review_ia.md`) revisando los repositorios `base-datos-2` (U1–U6) y `BaseDatos2-MongoDB` (U7–U8), consolidar la tabla de hallazgos con su decisión (`Corregido`, `Aceptado` o `Descartado`) y desarrollar 4 hallazgos de unidades distintas (U7, U6, U5/U3 y U8) con su comprobación en el motor.
 
-**Qué se aceptó:** la tabla de 10 hallazgos que recorre todas las unidades y el desarrollo de 4 casos verificados en motor:
+**Qué se aceptó:** la tabla de hallazgos que recorre todas las unidades y el desarrollo de 4 casos verificados en motor:
 1. U7 (MongoDB): descarte del índice único multikey `{"lineas.id_producto": 1}` y reemplazo por `$jsonSchema` con `$expr` y `$setUnion`.
 2. U6 (PostgreSQL): inclusión de `usuario` en `maintenance.sql` y validación contra `.conteo` en `restore_test.sh`.
 3. U5/U3 (PostgreSQL): revocación de `INSERT, UPDATE` directo sobre `pedido` y `detalle_pedido` para `rol_app_escritura` (dejando solo `CALL registrar_pedido`) y bloqueo de reseteo de cuentas `ADMIN` en `fn_resetear_password`.
-4. U8 (SQLite): descarte de `printf` como texto en `v_catalogo_disponible` y de `UNIQUE(id_local)` total en `cola_sync`.
+4. U8 (SQLite / PostgreSQL): descarte de `printf` como texto en `v_catalogo_disponible`, de `UNIQUE(id_local)` total en `cola_sync` y de la guarda `CASE WHEN current_database() <> 'bd2_tp8' THEN 1/0 END` en `10_snapshot_catalogo.sql`.
 
 **Qué se descartó:**
 - El hallazgo de OpenCode en U6 que marcaba como defecto que `health_check.sql` mostrara `n_live_tup = 0` tras `createdb -T`: se descartó porque ese `0` refleja el comportamiento real de PostgreSQL al clonar una base sin copiar estadísticas dinámicas y fue la señal que justificó correr `ANALYZE`.
 - La ejecución no interactiva de `opencode run --agent plan` desde una subshell sin TTY: como `opencode.json` tiene `"bash": { "*": "ask" }`, el comando espera confirmación interactiva y queda bloqueado; la revisión se apoya en las corridas en modo Plan y las comprobaciones directas en `psql`, `mongosh` y `sqlite3`.
 
 **Cómo se comprobó:** cada uno de los 4 hallazgos desarrollados cuenta con su evidencia de ejecución en el motor: `evidencias/salida_prueba_indice_unico_ia.txt` (`mongosh`, U7), `mantenimiento/evidencias/maintenance_salida.txt` y `restore_test_v2_salida.txt` (`psql`, U6), pruebas con `SET ROLE` dentro de `BEGIN … ROLLBACK` (`psql`, U5) y `food-store/evidencias/salida_pruebas_sqlite.txt` (`sqlite3`, U8).
-

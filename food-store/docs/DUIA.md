@@ -34,11 +34,9 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 
 ### Bloque B — Instantánea, importación, semáforo y README (Elías Tello)
 
-*(Se completa a medida que se integran los commits de la rama `tp8-elias`).*
-
 | Fecha | Herramienta | Propósito | Qué se le dio (Input) | Qué devolvió (Output) | Decisión | Motivo y comprobación en el motor |
 |---|---|---|---|---|---|---|
-| Nov 2026 | OpenCode (agente Build) | Generar `10_snapshot_catalogo.sql`, `importar_catalogo.sql`, `semaforo.sql` y `README.md` (Tareas 1, 3, 5 y 7) | `.kiro/specs/tp8-tablet/` y nombres reales de columnas en `bd2_tp8` | Scripts de vista, importación con upsert y evaluación de solicitudes `PENDIENTE` | *En integración* | *Pendiente de volcar entradas del autor al cerrar el Bloque B.* |
+| 01/11/2026 | Claude Code | Generar `10_snapshot_catalogo.sql`, `importar_catalogo.sql`, `semaforo.sql`, `README.md` y elegir productos fijos (Tareas 1, 3, 5 y 7) | `.kiro/specs/tp8-tablet/` y columnas reales en `bd2_tp8` (`\d producto`, `\d categoria`) | Vista con precio en centavos y lápida, upsert al caché, semáforo con `LEFT JOIN` y productos fijos 3, 2, 11, 9 y 10 | **Aceptado con 2 correcciones y 1 descarte** | 1) Con `\d categoria` se vio que `categoria` también tiene `activo` (`Congelados` dada de baja): se cambió a `eliminado = NOT p.activo OR NOT c.activo` (viajan 10.048 lápidas en vez de 1). 2) En `semaforo.sql` se cubrió el borrador sin ítems (`RECHAZADO`) y la instantánea vacía (no evaluar). 3) Se descartó la guarda `SELECT CASE WHEN current_database() <> 'bd2_tp8' THEN 1/0 END` porque PostgreSQL evalúa la constante `1/0` al planificar aunque no entre en esa rama; se reemplazó por `DO $$ … RAISE EXCEPTION`. |
 
 ### Bloque C — Casos C2–C6, consulta final, mapa de 3 motores e informe (Hernán González)
 
@@ -62,6 +60,7 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 
 | Fecha | Integrante | Apartamiento | Justificación |
 |---|---|---|---|
+| 01/11/2026 | Elías Tello | Uso de Claude Code para generar los scripts del Bloque B (`10_snapshot_catalogo.sql`, `importar_catalogo.sql`, `semaforo.sql` y `README.md`) a partir de `tasks.md` | Se trabajó en una única sesión manteniendo la regla de delegar la escritura y no la decisión: el autor verificó primero con `\d` en `bd2_tp8`, corrigió la lógica de baja por categoría y la guarda de base de datos, y comprobó cada script en `psql` y `sqlite3`. |
 | 01/11/2026 | Bruno Fiouchetta | Uso de Gemini (Antigravity) como asistente par junto con OpenCode (agente Plan) para estructurar el análisis de los puntos 3.b, 3.c y 4.b | En Windows, la invocación no interactiva de `opencode run --agent plan` queda en espera de confirmación de consola por la política `"bash": { "*": "ask" }` de `opencode.json`. Por eso se combinaron las auditorías en modo Plan de OpenCode ya ejecutadas en los repositorios con Gemini para consolidar la tabla transversal U1–U8 y la documentación, verificando cada afirmación contra las salidas reales de `psql`, `mongosh` y `sqlite3`. |
 
 ---
