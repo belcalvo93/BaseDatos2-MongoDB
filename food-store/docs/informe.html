@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>TP 8 - Food Store en la feria (SQLite)</title>
+<style>
+@page { size: A4; margin: 11mm 13mm 13mm 13mm;
+  @bottom-left { content: "TP 8 · Food Store en la feria: la base de la tablet"; font: 7pt 'Segoe UI', Arial, sans-serif; color: #94a3b8; }
+  @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 7pt 'Segoe UI', Arial, sans-serif; color: #94a3b8; } }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.9pt; line-height: 1.38; color: #1f2937; }
+.cover { border-bottom: 3px solid #0f4c81; padding-bottom: 6px; margin-bottom: 8px; }
+.cover .inst { font-size: 0.78em; letter-spacing: .06em; text-transform: uppercase; color: #64748b; font-weight: 600; }
+.cover h1 { font-size: 1.9em; color: #0f4c81; font-weight: 800; line-height: 1.15; margin: 2px 0; }
+.cover .sub { color: #475569; font-size: 0.95em; }
+.meta-bar { background: #f1f5f9; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; font-size: 0.9em; }
+h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; background: #0f4c81; color: #fff; padding: 5px 10px; border-radius: 6px; margin: 12px 0 7px; font-size: 1.12em; break-after: avoid; }
+h2 small { font-weight: 400; font-size: 0.72em; opacity: .85; text-align: right; }
+.section-title { font-size: 1.02em; font-weight: 700; color: #0f4c81; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 1px; margin: 9px 0 4px; break-after: avoid; }
+p { margin-bottom: 4px; text-align: justify; }
+code { font-family: Consolas, 'Courier New', monospace; font-size: 0.9em; background: #f1f5f9; padding: 0 2px; border-radius: 2px; }
+table { width: 100%; border-collapse: collapse; margin: 4px 0 7px; font-size: 0.86em; }
+tr { break-inside: avoid; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 3px 5px; text-align: left; vertical-align: top; }
+th { background: #e8eef5; color: #0f172a; font-weight: 700; border-bottom: 1.5px solid #94a3b8; }
+tbody tr:nth-child(even) td { background: #f8fafc; }
+td.c, th.c { text-align: center; }
+.code-block { background: #0f172a; color: #e2e8f0; border-radius: 5px; padding: 6px 9px; font-family: Consolas, 'Courier New', monospace; font-size: 0.8em; line-height: 1.3; margin: 3px 0 7px; white-space: pre-wrap; break-inside: avoid; }
+.highlight-box { background: #eff6ff; border-left: 3px solid #2563eb; border-radius: 0 5px 5px 0; padding: 5px 9px; margin: 4px 0 7px; break-inside: avoid; }
+.alert-box { background: #fef2f2; border-left: 3px solid #dc2626; border-radius: 0 5px 5px 0; padding: 5px 9px; margin: 4px 0 7px; break-inside: avoid; }
+.badge { display: inline-block; padding: 1px 6px; font-size: 0.78em; font-weight: 700; border-radius: 4px; color: #fff; white-space: nowrap; }
+.ok { background: #16a34a; } .no { background: #dc2626; } .warn { background: #d97706; } .info { background: #0284c7; } .grey { background: #64748b; }
+ul { margin: 2px 0 6px 16px; } li { margin-bottom: 2px; }
+.grid-2 { display: flex; gap: 10px; align-items: flex-start; } .grid-2 > div { flex: 1; min-width: 0; }
+.flow { display: flex; align-items: stretch; gap: 4px; margin: 5px 0 7px; break-inside: avoid; }
+.flow .box { flex: 1; border: 1.5px solid #0f4c81; border-radius: 6px; padding: 4px 6px; font-size: 0.86em; background: #f8fafc; }
+.flow .box b { color: #0f4c81; display: block; }
+.flow .arrow { align-self: center; font-size: 0.8em; color: #475569; text-align: center; width: 78px; }
+.dev { border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 9px; margin: 5px 0 7px; break-inside: avoid; }
+.dev h4 { color: #0f4c81; font-size: 0.98em; margin-bottom: 2px; }
+a { color: #0f4c81; text-decoration: none; }
+.page-break { break-before: page; }
+</style>
+</head>
+<body>
+<main>
+
+<header class="cover">
+  <div class="inst">UTN FRM · Tecnicatura Universitaria en Programación · Base de Datos II</div>
+  <h1>Trabajo Práctico N.º 8 · Food Store en la feria</h1>
+  <div class="sub">La base de la tablet (SQLite) y el cierre de la capa de datos · Ciclo Lectivo 2026 · Comisión 2PRO3</div>
+</header>
+<div class="meta-bar">
+  <div><b>Integrantes:</b> Belén Calvo, Elías Tello, Hernán González, Bruno Fiouchetta</div>
+  <div><b>Repositorio:</b> <a href="https://github.com/belcalvo93/BaseDatos2-MongoDB">github.com/belcalvo93/BaseDatos2-MongoDB</a> · carpeta <code>food-store/</code></div>
+</div>
+<div class="highlight-box"><b>Regla de oro: el móvil propone, el servidor dispone.</b> La tablet (SQLite) solo consulta una copia del catálogo y arma borradores sin señal. Precio, stock y ventas los decide únicamente PostgreSQL. <code>SIMULADO_APROBADO</code> significa "pasaría las validaciones", <b>no es una venta</b>, y ningún script de la simulación escribe en PostgreSQL. Todo se hizo sobre <code>bd2_tp8</code>, una copia de <code>bd2_tp3</code> con datos inventados.</div>
+
+<!-- =========================== 1.a =========================== -->
+<h2>Consigna 1.a · Qué datos viajan a la tablet <small>docs/1a_datos_que_viajan.md · postgresql/10_snapshot_catalogo.sql</small></h2>
+<table>
+  <thead><tr><th>Dato en PostgreSQL</th><th class="c">¿Viaja?</th><th>Cómo llega a la tablet</th><th>Por qué</th></tr></thead>
+  <tbody>
+    <tr><td><code>producto.id_producto</code></td><td class="c">Sí</td><td><code>producto_id</code></td><td>El mismo id que en el servidor, para comparar en el semáforo.</td></tr>
+    <tr><td><code>producto.nombre</code></td><td class="c">Sí</td><td><code>nombre</code></td><td>El vendedor tiene que ver qué vende.</td></tr>
+    <tr><td><code>producto.precio</code> (NUMERIC)</td><td class="c">Sí, convertido</td><td><code>precio_centavos</code> (INTEGER)</td><td>Para mostrar el catálogo y detectar cambios de precio; en centavos las cuentas son exactas.</td></tr>
+    <tr><td><code>producto.stock</code></td><td class="c">Sí, como copia</td><td><code>stock_visto</code></td><td>Solo orientativo: el stock real lo decide el servidor.</td></tr>
+    <tr><td><code>producto.activo</code> y <code>categoria.activo</code></td><td class="c">Sí, convertidos</td><td><code>eliminado</code> (lápida) y <code>disponible</code></td><td>La baja viaja como dato: el producto sale del catálogo pero la fila queda. Cuenta la baja del producto <b>o</b> de su categoría (Congelados está dada de baja: 10.048 lápidas).</td></tr>
+    <tr><td>—</td><td class="c">Se agrega</td><td><code>capturado_en</code></td><td>Fecha de la copia: dice qué tan vieja es la lista.</td></tr>
+    <tr><td><code>descripcion</code>, <code>id_categoria</code>, <code>created_at</code></td><td class="c">No</td><td>—</td><td>No hacen falta para vender; la tablet tiene poco espacio.</td></tr>
+    <tr><td><code>cliente</code> (nombre, apellido, email, teléfono)</td><td class="c">No</td><td>—</td><td>Datos personales: no hacen falta para vender y la tablet se puede perder.</td></tr>
+    <tr><td><code>pedido</code> y <code>detalle_pedido</code></td><td class="c">No</td><td>—</td><td>Solo el servidor confirma y numera ventas.</td></tr>
+    <tr><td>Usuarios, contraseñas, medios de pago</td><td class="c">No</td><td>—</td><td>Riesgo sin beneficio; SQLite no tiene usuarios ni permisos.</td></tr>
+  </tbody>
+</table>
+<p>A la tablet viaja solo lo necesario para mostrar el catálogo y armar borradores sin señal. Los datos personales no viajan porque la Ley 25.326 pide datos "adecuados, pertinentes y no excesivos" (art. 4) y que se cuide su seguridad (art. 9): en un dispositivo que se puede perder y que no tiene usuarios ni permisos, guardar poco es la principal medida de seguridad. <b>La fuente de verdad es PostgreSQL</b>: lo que guarda la tablet es una copia con fecha que puede estar vieja.</p>
+
+<!-- =========================== 2.c =========================== -->
+<h2>Consigna 2.c · Los casos C2 a C6 <small>movil/casos_sqlite.sql · postgresql/casos_servidor.sql · evidencias/</small></h2>
+<p><b>Flujo de cada caso:</b> (1) borrador en SQLite dentro de <code>BEGIN … COMMIT</code> → (2) si el caso lo pide, cambio manual en <code>bd2_tp8</code> → (3) <code>\copy</code> de una instantánea nueva → (4) <code>.read movil/importar_catalogo.sql</code> (upsert al caché) → (5) <code>.read movil/semaforo.sql</code> → (6) lectura de <code>cola_sync</code>. Los productos fijos y sus datos iniciales en el servidor:</p>
+<table>
+  <thead><tr><th class="c">id</th><th>Producto</th><th class="c">Precio</th><th class="c">Stock</th><th>Uso</th></tr></thead>
+  <tbody>
+    <tr><td class="c">3</td><td>Agua mineral 2L</td><td class="c">$1400,00</td><td class="c">40</td><td>C2: el precio se sube a $1600,00</td></tr>
+    <tr><td class="c">2</td><td>Medialunas x6</td><td class="c">$3200,00</td><td class="c">3</td><td>C3: el borrador pide 5</td></tr>
+    <tr><td class="c">11</td><td>Cerveza 1L</td><td class="c">$4500,00</td><td class="c">10</td><td>C4: se da de baja (<code>activo = false</code>)</td></tr>
+    <tr><td class="c">9</td><td>Fideos secos 500g</td><td class="c">$1950,00</td><td class="c">30</td><td>C5: sin cambios</td></tr>
+    <tr><td class="c">10</td><td>Helado 1L</td><td class="c">$9500,00</td><td class="c">0</td><td>C1/C7: ya dado de baja (no aparece en el catálogo)</td></tr>
+  </tbody>
+</table>
+
+<table>
+  <thead><tr><th style="width:6%">Caso</th><th style="width:33%">Comando (resumen)</th><th style="width:24%">Resultado en <code>cola_sync</code></th><th>Explicación</th></tr></thead>
+  <tbody>
+    <tr><td><b>C2</b></td>
+      <td>Borrador: 2 × producto 3 visto a <code>140000</code>. En <code>bd2_tp8</code>: <code>UPDATE producto SET precio = 1600.00 WHERE id_producto = 3;</code> → instantánea → semáforo. Después: <code>UPDATE item_borrador SET precio_centavos_visto = 160000 …</code> + solicitud nueva <code>…000202</code> → semáforo.</td>
+      <td><span class="badge warn">CONFLICTO</span> <code>precio cambió: producto 3 (visto 140000, actual 160000 centavos)</code><br><span class="badge ok">SIMULADO_APROBADO</span> en la solicitud nueva</td>
+      <td>El precio del servidor no coincide con el que vio la tablet: amarillo, se le pregunta al cliente en vez de decidir solo. El cliente acepta, se actualiza el borrador y una solicitud con <b>otro UUID</b> (lo permite el índice parcial <code>ux_cola_una_pendiente</code>) da verde. El conflicto queda registrado.</td></tr>
+    <tr><td><b>C3</b></td>
+      <td>Borrador: 5 × producto 2 (stock 3) → semáforo.</td>
+      <td><span class="badge no">RECHAZADO</span> <code>stock insuficiente: producto 2 (pide 5, hay 3)</code></td>
+      <td>Pide más de lo que informa la instantánea: rojo. El stock del servidor sigue en 3: la tablet nunca lo descuenta.</td></tr>
+    <tr><td><b>C4</b></td>
+      <td>Borrador: 1 × producto 11. En <code>bd2_tp8</code>: <code>UPDATE producto SET activo = false WHERE id_producto = 11;</code> → instantánea → importar → semáforo.</td>
+      <td><span class="badge no">RECHAZADO</span> <code>dado de baja: producto 11</code><br>En <code>v_catalogo_disponible</code>: 0 filas · en <code>producto_cache</code>: la fila sigue con <code>eliminado = 1</code></td>
+      <td>La baja viaja como lápida. Por el upsert, el producto sale del catálogo pero la fila no se borra, así el <code>item_borrador</code> que lo usa no rompe la clave foránea.</td></tr>
+    <tr><td><b>C5</b></td>
+      <td>Borrador: 2 × producto 9 a <code>195000</code> → semáforo.</td>
+      <td><span class="badge ok">SIMULADO_APROBADO</span> <code>todo coincide con la instantánea (simulación, no es una venta)</code></td>
+      <td>Activo, con stock (2 ≤ 30) y mismo precio: verde. Solo dice que pasaría las validaciones; la venta existiría recién cuando PostgreSQL la confirme en su propia transacción.</td></tr>
+    <tr><td><b>C6</b></td>
+      <td>(a) <code>.read movil/semaforo.sql</code> otra vez. (b) <code>INSERT INTO cola_sync</code> con <code>solicitud_uuid = …000005</code> (ya enviado).</td>
+      <td>(a) <code>quedan_pendientes = 0</code>, las 5 solicitudes sin cambios. (b) <code>UNIQUE constraint failed: cola_sync.solicitud_uuid</code></td>
+      <td>La clave primaria impide duplicar el envío y el semáforo solo evalúa <code>PENDIENTE</code>, así que repetirlo no reevalúa nada.</td></tr>
+  </tbody>
+</table>
+<div class="highlight-box"><b>C6 · Dónde va la protección real (parada 8):</b> en el servidor. Una tabla <code>solicitud_movil (solicitud_uuid PRIMARY KEY, …)</code> y, en la <b>misma transacción</b> que crea el pedido y descuenta stock (con <code>SELECT … FOR UPDATE</code>), un <code>INSERT … ON CONFLICT (solicitud_uuid) DO NOTHING</code>: si el UUID ya llegó por un reintento de red, no se crea otro pedido ni se descuenta stock dos veces. El TP no la implementa.</div>
+
+<div class="section-title">Consulta final en PostgreSQL: la simulación no cambió pedidos ni stock</div>
+<div class="grid-2">
+  <div class="code-block">-- psql -U postgres -d bd2_tp8 (antes y después)
+SELECT count(*) FROM pedido;
+SELECT id_producto, nombre, precio, stock, activo
+FROM producto
+WHERE id_producto IN (2, 3, 9, 10, 11)
+ORDER BY id_producto;</div>
+  <div>
+    <table>
+      <thead><tr><th>Dato</th><th class="c">Antes</th><th class="c">Después</th></tr></thead>
+      <tbody>
+        <tr><td><code>count(*) FROM pedido</code></td><td class="c">200005</td><td class="c"><b>200005</b></td></tr>
+        <tr><td>Stock de 2 · 3 · 9 · 10 · 11</td><td class="c">3 · 40 · 30 · 0 · 10</td><td class="c"><b>3 · 40 · 30 · 0 · 10</b></td></tr>
+        <tr><td>Precio del producto 3</td><td class="c">1400.00</td><td class="c">1600.00 <i>(C2, a mano)</i></td></tr>
+        <tr><td><code>activo</code> del producto 11</td><td class="c">t</td><td class="c">f <i>(C4, a mano)</i></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<p>Pedidos y stock quedaron iguales. Los dos únicos cambios en <code>bd2_tp8</code> son los que se prepararon a mano para C2 y C4, antes de simular. Salidas completas en <code>evidencias/salida_casos_servidor_postgresql.txt</code> y <code>evidencias/salida_casos_c2_c6_sqlite.txt</code>.</p>
+
+<!-- =========================== 3.a =========================== -->
+<h2>Consigna 3.a · Mapa de la capa de datos <small>docs/2c_casos_y_3a_mapa.md</small></h2>
+<table>
+  <thead><tr><th style="width:14%">Motor</th><th style="width:40%">Qué guarda</th><th>Quién manda</th><th class="c" style="width:8%">Unidad</th></tr></thead>
+  <tbody>
+    <tr><td><b>PostgreSQL</b><br><code>bd2_tp3</code> / <code>bd2_tp8</code></td><td>Catálogo oficial (<code>producto</code>, <code>categoria</code>), <code>cliente</code>, <code>usuario</code>, <code>pedido</code> y <code>detalle_pedido</code> en 3FN.</td><td><b>Fuente de verdad.</b> Es el único que decide precio vigente, stock real, altas y bajas del catálogo y confirmación de ventas.</td><td class="c">1 a 6</td></tr>
+    <tr><td><b>MongoDB</b><br><code>foodstore.pedidos</code></td><td>Pedidos ya cerrados como documentos: cliente y líneas embebidos, precio histórico congelado, <code>Decimal128</code>, validador <code>$jsonSchema</code> (8 pedidos del TP7).</td><td>Solo sobre esa copia de lectura de pedidos emitidos. <b>No decide stock, precios ni ventas nuevas.</b></td><td class="c">7</td></tr>
+    <tr><td><b>SQLite</b><br><code>foodstore_movil.db</code></td><td>Copia fechada del catálogo (<code>snapshot_servidor</code>, <code>producto_cache</code> con lápidas), borradores y <code>cola_sync</code>. Sin datos personales.</td><td><b>No manda sobre ningún dato maestro.</b> Solo prepara: muestra el catálogo, arma borradores y encola solicitudes.</td><td class="c">8</td></tr>
+  </tbody>
+</table>
+<div class="flow">
+  <div class="box"><b>PostgreSQL</b>publica <code>v_snapshot_movil</code> (centavos, lápidas, sin datos personales)</div>
+  <div class="arrow">① CSV de la instantánea →</div>
+  <div class="box"><b>SQLite (tablet)</b>catálogo sin señal, borradores, semáforo local</div>
+  <div class="arrow">② solicitudes pendientes →<br>← ③ respuesta</div>
+  <div class="box"><b>PostgreSQL</b>revalida stock (<code>FOR UPDATE</code>), precio e idempotencia y <b>solo él</b> confirma la venta</div>
+  <div class="arrow">④ pedidos cerrados →</div>
+  <div class="box"><b>MongoDB</b>lectura del pedido completo en un solo documento</div>
+</div>
+<p>En el TP, los pasos ② y ③ solo se simulan con el semáforo; ningún dato vuelve a escribirse en PostgreSQL desde la tablet.</p>
+
+<!-- =========================== 3.b =========================== -->
+<h2>Consigna 3.b · Plan de mantenimiento (agregado al plan de la U6) <small>docs/3b_plan_mantenimiento.md</small></h2>
+<p><b>¿Qué se respalda y cómo se prueba la restauración?</b></p>
+<ul>
+  <li><b>PostgreSQL:</b> respaldo diario con <code>backup_foodstore.sh</code> (<code>pg_dump -Fc</code> más un archivo <code>.conteo</code> con las filas de cada tabla, sin contraseñas en el script gracias a <code>pgpass.conf</code>). La restauración se prueba cada semana con <code>restore_test.sh</code> sobre la base descartable <code>foodstore_restore_test</code>: se mide el tiempo (RTO 15 min) y se compara el conteo contra el <code>.conteo</code> del respaldo.</li>
+  <li><b>MongoDB:</b> <code>mongodump --db foodstore</code> diario y prueba semanal con <code>mongorestore</code> en una base temporal, comparando la cantidad de documentos.</li>
+  <li><b>SQLite:</b> el catálogo de la tablet no se respalda porque se regenera desde PostgreSQL. Si al cerrar quedan solicitudes sin resolver en <code>cola_sync</code>, se copia el archivo <code>.db</code> (<code>.backup</code>) y se verifica con <code>PRAGMA integrity_check;</code>.</li>
+</ul>
+<p><b>Si se restaura un respaldo viejo de PostgreSQL, ¿qué hacen las tablets?</b> Quedan con un catálogo "del futuro" (precios o bajas que el respaldo todavía no tiene). Antes de vender o sincronizar, el servidor publica una instantánea nueva y <b>todas las tablets la descargan y recargan el caché</b> con <code>importar_catalogo.sql</code>. Las solicitudes resueltas después del corte se vuelven a evaluar contra el servidor restaurado; en un sistema real, la tabla <code>solicitud_movil</code> evita duplicar las que sí habían entrado al respaldo.</p>
+<p><b>¿Cada cuánto y quién revisa <code>CONFLICTO</code> y <code>RECHAZADO</code>?</b> Durante la feria, cada vez que vuelve la señal, el <b>vendedor</b> revisa con el cliente los <code>CONFLICTO</code> (acepta el precio nuevo y se reenvía, o se descarta el borrador) y corrige los <code>RECHAZADO</code> (quita o ajusta el ítem). Al cierre diario, antes del respaldo nocturno, el <b>encargado de operaciones</b> controla que no queden solicitudes sin cerrar y anota el motivo.</p>
+
+<!-- =========================== 3.c =========================== -->
+<h2>Consigna 3.c · Code review con IA (OpenCode, agente Plan) <small>docs/3c_code_review_ia.md · rama review-final</small></h2>
+<table>
+  <thead><tr><th class="c" style="width:4%">#</th><th style="width:15%">Unidad · archivo</th><th style="width:38%">Hallazgo</th><th class="c" style="width:12%">Decisión</th><th>Motivo</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td>U3–U5 · <code>roles.sql</code>, <code>procedimientos.sql</code></td><td><code>rol_app_escritura</code> podía hacer <code>INSERT/UPDATE</code> directo en <code>pedido</code> salteando <code>registrar_pedido</code>.</td><td class="c"><span class="badge info">Corregido</span></td><td>Se revocó el DML directo: solo se escribe con <code>CALL registrar_pedido</code>.</td></tr>
+    <tr><td class="c">2</td><td>U3 · <code>procedimientos.sql</code></td><td>Posible carrera al leer y descontar stock sin bloqueo explícito.</td><td class="c"><span class="badge ok">Aceptado</span></td><td>Documentado: la confirmación real de las tablets debe usar <code>SELECT … FOR UPDATE</code>.</td></tr>
+    <tr><td class="c">3</td><td>U4 · <code>tp_desnormalizacion…sql</code></td><td>Con <code>ON DELETE CASCADE</code>, el trigger de <code>detalle_pedido</code> ya no encuentra la fecha del pedido.</td><td class="c"><span class="badge info">Corregido</span></td><td>Trigger <code>BEFORE DELETE ON pedido</code> que descuenta antes del borrado.</td></tr>
+    <tr><td class="c">4</td><td>U5 · <code>funciones_auth.sql</code></td><td><code>fn_resetear_password</code> dejaba a soporte cambiar la clave de un <code>ADMIN</code>.</td><td class="c"><span class="badge info">Corregido</span></td><td><code>AND rol &lt;&gt; 'ADMIN'</code> y error si no encuentra el usuario.</td></tr>
+    <tr><td class="c">5</td><td>U5 · <code>auditoria_test.sql</code></td><td>Propuso <code>log_statement = 'all'</code> global y leer el log como UTF-8.</td><td class="c"><span class="badge grey">Descartado</span></td><td>Se dejó <code>'mod'</code>; el log en Windows es WIN1252.</td></tr>
+    <tr><td class="c">6</td><td>U6 · <code>maintenance.sql</code></td><td><code>ANALYZE</code> omitía la tabla <code>usuario</code>.</td><td class="c"><span class="badge info">Corregido</span></td><td>Desarrollo 2.</td></tr>
+    <tr><td class="c">7</td><td>U6 · <code>restore_test.sh</code></td><td>Comparaba la base restaurada contra la base viva.</td><td class="c"><span class="badge info">Corregido</span></td><td>Desarrollo 2.</td></tr>
+    <tr><td class="c">8</td><td>U6 · <code>health_check.sql</code></td><td>Marcó como error <code>n_live_tup = 0</code> en una base copiada.</td><td class="c"><span class="badge grey">Descartado</span></td><td><code>createdb -T</code> no copia esos contadores; el 0 era la señal útil.</td></tr>
+    <tr><td class="c">9</td><td>U7 · <code>consultas_mongodb.js</code></td><td>Índice único en <code>lineas.id_producto</code> y totales como <code>double</code>.</td><td class="c"><span class="badge grey">Descartado</span> <span class="badge info">Corregido</span></td><td>Desarrollo 1; montos en <code>Decimal128</code>.</td></tr>
+    <tr><td class="c">10</td><td>U8 · <code>schema_sqlite.sql</code></td><td>Precio como texto en la vista; <code>UNIQUE(id_local)</code> total en <code>cola_sync</code>.</td><td class="c"><span class="badge grey">Descartado</span></td><td>Desarrollo 3.</td></tr>
+    <tr><td class="c">11</td><td>U8 · <code>10_snapshot_catalogo.sql</code>, <code>semaforo.sql</code></td><td>No miraba <code>categoria.activo</code>; control <code>CASE … 1/0</code>; sin casos borde.</td><td class="c"><span class="badge info">Corregido</span> <span class="badge grey">Descartado</span></td><td>Baja por categoría; <code>1/0</code> falla siempre al planificar → <code>DO … RAISE</code>.</td></tr>
+  </tbody>
+</table>
+
+<div class="dev">
+  <h4>Desarrollo 1 · U7 (MongoDB) · Índice único en <code>lineas.id_producto</code> — <span class="badge grey">Descartado</span></h4>
+  <p><b>Propuesta:</b> <code>db.pedidos.createIndex({ "lineas.id_producto": 1 }, { unique: true })</code> para que un producto no se repita dentro de un pedido. <b>Fundamento:</b> según la documentación de MongoDB, un índice único multikey impide que <b>dos documentos distintos</b> compartan el valor, no que se repita dentro del mismo arreglo. <b>Comprobación en mongosh</b> (<code>prueba_indice_unico_ia.js</code>): un pedido con dos líneas del producto 1 fue <b>aceptado</b>, y un segundo pedido legítimo con el producto 1 fue <b>rechazado</b> con <code>E11000 duplicate key</code>. Se usó en cambio un validador con <code>$expr</code> y <code>$setUnion</code>, que rechaza el duplicado con el código 121.</p>
+</div>
+<div class="dev">
+  <h4>Desarrollo 2 · U6 (PostgreSQL) · <code>ANALYZE</code> sin <code>usuario</code> y restauración contra la base viva — <span class="badge info">Corregido</span></h4>
+  <p><b>Hallazgo:</b> <code>maintenance.sql</code> listaba 5 tablas y dejaba afuera <code>usuario</code> (creada en la U5); <code>restore_test.sh</code> comparaba la base restaurada contra <code>foodstore</code> en vivo, lo que da un falso error si entran ventas después del respaldo. <b>Comprobación en psql:</b> después del <code>ANALYZE</code>, <code>pg_class</code> mostraba <code>usuario</code> con <code>reltuples = -1</code> y <code>last_analyze</code> en <code>NULL</code>, mientras las otras 5 tablas estaban al día. Corregido: se analizan las 6 tablas (en la corrida siguiente <code>usuario</code> aparece analizada) y el respaldo guarda un <code>.conteo</code> contra el que valida la restauración.</p>
+</div>
+<div class="dev">
+  <h4>Desarrollo 3 · U8 (SQLite) · Precio como texto y <code>UNIQUE</code> total en <code>cola_sync</code> — <span class="badge grey">Descartado</span></h4>
+  <p><b>Propuesta:</b> cambiar <code>precio_centavos / 100.0</code> por <code>printf('%d.%02d', …)</code> en <code>v_catalogo_disponible</code> "para no usar REAL", y declarar <code>id_local UNIQUE</code> en <code>cola_sync</code>. <b>Fundamento:</b> la regla de centavos enteros es para <b>guardar</b> y comparar precios; la vista no guarda nada, y como texto <code>ORDER BY precio</code> ordena mal (<code>'899.00'</code> queda después de <code>'1500.00'</code>). Un <code>UNIQUE</code> total impediría reenviar el borrador del C2 después del conflicto. <b>Comprobación en sqlite3:</b> con el índice parcial <code>WHERE estado = 'PENDIENTE'</code>, dos pendientes del mismo borrador fallan con <code>UNIQUE constraint failed: cola_sync.id_local</code>, pero cuando el primero pasa a <code>CONFLICTO</code> la solicitud nueva entra sin error (es exactamente el C2).</p>
+</div>
+
+</main>
+</body>
+</html>
