@@ -76,3 +76,23 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 **Qué se corrigió:** se eliminó una consulta `SELECT … WHERE 0` que no devolvía filas ni aportaba nada a la salida.
 
 **Cómo se comprobó:** se corrió sobre una base nueva (`pruebas.db`) con `schema_sqlite.sql`. Resultado en `food-store/evidencias/salida_pruebas_sqlite.txt`: 1/1/1 tras el COMMIT; antes = después en el ROLLBACK y en el C7; el catálogo muestra solo el producto 900001; aparecen solo los dos errores esperados (CHECK y FOREIGN KEY) y el script llega al final.
+
+---
+
+## Entrada 6 · 01/11/2026 · Elías Tello · Claude Code
+
+**Qué se pidió:** a partir de las Tareas 1, 3, 5 y 7 de `tasks.md`, generar la vista `v_snapshot_movil` (`postgresql/10_snapshot_catalogo.sql`), la importación con upsert (`movil/importar_catalogo.sql`), el semáforo (`movil/semaforo.sql`) y el `README.md`, y proponer los productos fijos de los casos.
+
+**Qué se aceptó:** la vista con precio en centavos enteros y la lápida que viaja; el upsert al caché; el semáforo con `LEFT JOIN` y el chequeo explícito `s.producto_id IS NULL`; los productos fijos 3, 2, 11, 9 y 10.
+
+**Qué se corrigió:**
+- La spec decía `eliminado = NOT activo`. Con `\d categoria` se vio que `categoria` también tiene `activo`, y que Congelados está dada de baja. Se cambió a `eliminado = NOT p.activo OR NOT c.activo` (y lo mismo en `disponible`). Así 10048 productos viajan como lápidas en vez de 1.
+- Se agregaron dos casos borde que la spec no cubría: un borrador sin ítems queda `RECHAZADO` (si no, quedaba `PENDIENTE` para siempre) y, si no hay instantánea cargada, el semáforo no evalúa nada (si no, rechazaba todo como "producto inexistente").
+
+**Qué se descartó:** el primer control para que la vista no se cree en `bd2_tp3` era `SELECT CASE WHEN current_database() <> 'bd2_tp8' THEN 1/0 END`. Falló también en `bd2_tp8`: PostgreSQL calcula la constante `1/0` al planificar la consulta, aunque esa rama del `CASE` nunca se use. Se reemplazó por un bloque `DO` con `RAISE EXCEPTION`.
+
+**Cómo se comprobó:**
+- La vista: en `bd2_tp8` da 50011 filas, 10048 lápidas y 39963 disponibles. Corrida sobre `bd2_tp3` corta con el error del `RAISE`, y `pg_views` confirma que en `bd2_tp3` no quedó ninguna vista.
+- La importación: corrida dos veces seguidas da los mismos conteos (50011 / 50011 / 10048 / 39963).
+- El semáforo: en una base de prueba, con los cambios del servidor simulados sobre `snapshot_servidor`, dio `CONFLICTO`, `RECHAZADO` (stock, baja, no disponible, inexistente, sin ítems, rojo + amarillo) y `SIMULADO_APROBADO` con el motivo correcto. Corrido dos veces dio una salida idéntica. Un `solicitud_uuid` repetido y dos `PENDIENTE` del mismo borrador dieron error de `UNIQUE`. `PRAGMA integrity_check` dio `ok`.
+- El README: se siguió paso a paso desde una base de la tablet vacía.
