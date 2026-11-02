@@ -40,11 +40,9 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 
 ### Bloque C — Casos C2–C6, consulta final, mapa de 3 motores e informe (Hernán González)
 
-*(Se completa a medida que se integran los commits de la rama `tp8-hernan`).*
-
 | Fecha | Herramienta | Propósito | Qué se le dio (Input) | Qué devolvió (Output) | Decisión | Motivo y comprobación en el motor |
 |---|---|---|---|---|---|---|
-| Nov 2026 | OpenCode (agente Build) | Generar `casos_servidor.sql`, corridas C2–C6 y mapa de 3 motores (Tarea 6 y 3.a) | `.kiro/specs/tp8-tablet/`, productos fijos del Bloque B y `semaforo.sql` | Preparación de casos en `bd2_tp8`, salidas en SQLite y consulta de control en PostgreSQL | *En integración* | *Pendiente de volcar entradas del autor al cerrar el Bloque C.* |
+| 01/11/2026 | OpenCode (agente Build) | Generar `casos_servidor.sql`, `casos_sqlite.sql` y `2c_casos_y_3a_mapa.md` (Tarea 6 y 3.a) | `.kiro/specs/tp8-tablet/`, productos fijos del Bloque B (3, 2, 11 y 9) y `semaforo.sql` | Preparación de C2 y C4 en `bd2_tp8`, corridas C2–C6 en SQLite, consulta de control en PostgreSQL y mapa de 3 motores | **Aceptado con 2 correcciones y 1 descarte** | 1) En `casos_sqlite.sql` se reordenó C6 para correr primero la reejecución idempotente de `semaforo.sql` con `.bail on` y al final el duplicado de `solicitud_uuid` con `.bail off` (porque `process_input()` en SQLite acumula `errCnt` y aborta si se reactiva `.bail on` tras un error). 2) Se verificó que la solicitud `205` estuviera en `SIMULADO_APROBADO` antes de reinsertar el mismo UUID para que falle por `PRIMARY KEY`. 3) Se descartó dejar el CSV intermedio modificado en el repo. Comprobado en `bd2_tp8` (`200005` pedidos antes y después) y `foodstore_movil.db` (`PRAGMA integrity_check = ok`). |
 
 ### Bloque D — Plan de mantenimiento, Code Review y consolidación de Bitácora/DUIA (Bruno Fiouchetta)
 
@@ -52,7 +50,7 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 |---|---|---|---|---|---|---|
 | 01/11/2026 | Gemini (Antigravity) | Redactar `food-store/docs/3b_plan_mantenimiento.md` (3.b) | Consigna 3.b del TP8, `contexto_tp8_equipo.md` y scripts reales de la Unidad 6 (`SPEC_U6.md`, `backup_foodstore.sh`, `restore_test.sh`) | Respuesta a las 3 preguntas de mantenimiento integrando PostgreSQL, MongoDB y SQLite | **Aceptado** | Se verificó que referencie los artefactos reales de la U6 (`.conteo`, `foodstore_restore_test`, `RPO = 24 h`, `RTO = 15 min`), descarte respaldar tablas de caché regenerables en SQLite y defina la recarga obligatoria de `v_snapshot_movil` si se restaura un backup viejo de PostgreSQL. |
 | 01/11/2026 | OpenCode (agente Plan) + Gemini (Antigravity) | Revisión de scripts de la cursada y redacción de `food-store/docs/3c_code_review_ia.md` (3.c) | Scripts de U1–U6 (`base-datos-2`), U7 y U8 (`BaseDatos2-MongoDB`) y auditorías en modo Plan | Tabla de 10 hallazgos con decisiones y desarrollo de 4 casos (U7, U6, U5/U3 y U8) | **Aceptado con descartes fundados** | Se incluyeron 2 hallazgos corregidos (U6 `usuario` en `ANALYZE` y `.conteo`; U5/U3 revocación de `INSERT/UPDATE` directo y bloqueo de reseteo a `ADMIN`) y 2 propuestas de IA descartadas con prueba en motor (U7 índice único multikey que bloquea ventas con `E11000`; U8 `printf` en vista y `UNIQUE` total en `cola_sync`), además de descartar el falso positivo de OpenCode sobre `n_live_tup = 0` en `health_check.sql`. |
-| 01/11/2026 | Gemini (Antigravity) | Consolidar `food-store/docs/bitacora_ia.md` y `food-store/docs/DUIA.md` (4.b) | Entradas 1 a 5 de Belén + registros del Bloque D | Bitácora con entradas 1 a 7 y documento DUIA estructurado | **Aceptado** | Verificado contra los requisitos de la consigna 4.b (mínimo 3 entradas con qué se pidió, qué se aceptó, qué se descartó y por qué, más la DUIA). |
+| 01/11/2026 | Gemini (Antigravity) | Consolidar `food-store/docs/bitacora_ia.md` y `food-store/docs/DUIA.md` (4.b) | Entradas 1 a 5 de Belén + Entrada 6 de Elías + Entrada 7 de Hernán + registros del Bloque D | Bitácora completa con las 9 entradas de los 4 bloques y documento DUIA consolidado | **Aceptado** | Verificado contra los requisitos de la consigna 4.b (todas las entradas de los 4 integrantes con qué se pidió, qué se aceptó, qué se descartó y por qué, más la DUIA). |
 
 ---
 
