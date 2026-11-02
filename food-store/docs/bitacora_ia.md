@@ -115,3 +115,32 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 - En PostgreSQL (`bd2_tp8`): se ejecutó `psql -U postgres -d bd2_tp8 -f postgresql/casos_servidor.sql`. Tanto al inicio como al final `SELECT count(*) FROM pedido` dio `200005` y los stocks de los productos `(2, 3, 9, 10, 11)` se mantuvieron en `(3, 40, 30, 0, 10)` (evidencia en `food-store/evidencias/salida_casos_servidor_postgresql.txt`). En `bd2_tp3` se verificó que el producto 3 sigue en `$1400.00` y el 11 en `activo = true`.
 - En SQLite (`movil/foodstore_movil.db`): se ejecutó `sqlite3 movil/foodstore_movil.db ".read movil/casos_sqlite.sql"`. La primera corrida del semáforo dejó C2 en `CONFLICTO`, C3 y C4 en `RECHAZADO` y C5 en `SIMULADO_APROBADO`; el reenvío de C2 con `202b` dio `SIMULADO_APROBADO` conservando el historial de `201`; la segunda corrida del semáforo no alteró ninguna fila; y el duplicado de `solicitud_uuid` devolvió `Runtime error: UNIQUE constraint failed: cola_sync.solicitud_uuid (19)`. `PRAGMA foreign_key_check` dio vacío y `PRAGMA integrity_check` dio `ok` (evidencia en `food-store/evidencias/salida_casos_c2_c6_sqlite.txt`).
 
+---
+
+## Entrada 8 · 01/11/2026 · Bruno Fiouchetta · Gemini (Antigravity) + OpenCode (agente Plan)
+
+**Qué se pidió:** redactar el punto 3.b (`food-store/docs/3b_plan_mantenimiento.md`) como agregado al plan de la Unidad 6 (`SPEC_U6.md`, `backup_foodstore.sh` y `restore_test.sh`), respondiendo qué se respalda en los tres motores y cómo se prueba la restauración, qué hacen las tablets si se restaura un respaldo viejo de PostgreSQL y cada cuánto y quién revisa las solicitudes en `CONFLICTO` o `RECHAZADO`.
+
+**Qué se aceptó:** la integración de los tres motores apoyada en los scripts reales de la Unidad 6 (`backup_foodstore.sh` con `pg_dump -Fc` y archivo `.conteo`, `restore_test.sh` sobre `foodstore_restore_test`), el procedimiento ante un respaldo viejo del servidor (publicar una nueva instantánea `v_snapshot_movil`, recargar `producto_cache` con `importar_catalogo.sql` y volver a evaluar las solicitudes) y la separación de responsabilidades entre el vendedor (en la feria, junto al cliente, para `CONFLICTO` y `RECHAZADO`) y el responsable de operaciones (cierre diario antes del backup nocturno).
+
+**Qué se descartó:** no se propuso respaldar `producto_cache` ni `snapshot_servidor` de SQLite, porque son copias derivadas cuya fuente de verdad es PostgreSQL y se regeneran desde `v_snapshot_movil`; en la tablet solo importa resguardar `pedido_borrador`, `item_borrador` y `cola_sync` cuando quedan envíos pendientes de cierre.
+
+**Cómo se comprobó:** se verificó contra `mantenimiento/SPEC_U6.md` y `mantenimiento/restore_test.sh` en el repositorio `base-datos-2` que los nombres de scripts, archivos `.conteo`, base descartable `foodstore_restore_test` y métricas (`RPO = 24 h`, `RTO = 15 min`) coincidan exactamente con lo implementado y medido en la Unidad 6.
+
+---
+
+## Entrada 9 · 01/11/2026 · Bruno Fiouchetta · OpenCode (agente Plan) + Gemini (Antigravity)
+
+**Qué se pidió:** realizar el code review de los scripts de la cursada (punto 3.c, `food-store/docs/3c_code_review_ia.md`) revisando los repositorios `base-datos-2` (U1–U6) y `BaseDatos2-MongoDB` (U7–U8), consolidar la tabla de hallazgos con su decisión (`Corregido`, `Aceptado` o `Descartado`) y desarrollar 4 hallazgos de unidades distintas (U7, U6, U5/U3 y U8) con su comprobación en el motor.
+
+**Qué se aceptó:** la tabla de hallazgos que recorre todas las unidades y el desarrollo de 4 casos verificados en motor:
+1. U7 (MongoDB): descarte del índice único multikey `{"lineas.id_producto": 1}` y reemplazo por `$jsonSchema` con `$expr` y `$setUnion`.
+2. U6 (PostgreSQL): inclusión de `usuario` en `maintenance.sql` y validación contra `.conteo` en `restore_test.sh`.
+3. U5/U3 (PostgreSQL): revocación de `INSERT, UPDATE` directo sobre `pedido` y `detalle_pedido` para `rol_app_escritura` (dejando solo `CALL registrar_pedido`) y bloqueo de reseteo de cuentas `ADMIN` en `fn_resetear_password`.
+4. U8 (SQLite / PostgreSQL): descarte de `printf` como texto en `v_catalogo_disponible`, de `UNIQUE(id_local)` total en `cola_sync` y de la guarda `CASE WHEN current_database() <> 'bd2_tp8' THEN 1/0 END` en `10_snapshot_catalogo.sql`.
+
+**Qué se descartó:**
+- El hallazgo de OpenCode en U6 que marcaba como defecto que `health_check.sql` mostrara `n_live_tup = 0` tras `createdb -T`: se descartó porque ese `0` refleja el comportamiento real de PostgreSQL al clonar una base sin copiar estadísticas dinámicas y fue la señal que justificó correr `ANALYZE`.
+- La ejecución no interactiva de `opencode run --agent plan` desde una subshell sin TTY: como `opencode.json` tiene `"bash": { "*": "ask" }`, el comando espera confirmación interactiva y queda bloqueado; la revisión se apoya en las corridas en modo Plan y las comprobaciones directas en `psql`, `mongosh` y `sqlite3`.
+
+**Cómo se comprobó:** cada uno de los 4 hallazgos desarrollados cuenta con su evidencia de ejecución en el motor: `evidencias/salida_prueba_indice_unico_ia.txt` (`mongosh`, U7), `mantenimiento/evidencias/maintenance_salida.txt` y `restore_test_v2_salida.txt` (`psql`, U6), pruebas con `SET ROLE` dentro de `BEGIN … ROLLBACK` (`psql`, U5) y `food-store/evidencias/salida_pruebas_sqlite.txt` (`sqlite3`, U8).
