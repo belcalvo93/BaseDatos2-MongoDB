@@ -1,0 +1,49 @@
+DO
+UPDATE 1
+UPDATE 1
+=== 1. CONSULTA INICIAL EN bd2_tp8 (ANTES DE PREPARAR Y SIMULAR) ===
+ total_pedidos_antes 
+---------------------
+              200005
+(1 fila)
+
+ id_producto |      nombre       | precio  | stock | activo 
+-------------+-------------------+---------+-------+--------
+           2 | Medialunas x6     | 3200.00 |     3 | t
+           3 | Agua mineral 2L   | 1400.00 |    40 | t
+           9 | Fideos secos 500g | 1950.00 |    30 | t
+          10 | Helado 1L         | 9500.00 |     0 | f
+          11 | Cerveza 1L        | 4500.00 |    10 | t
+(5 filas)
+
+=== 2. PREPARACION MANUAL EN bd2_tp8: SUBA DE PRECIO (C2) Y BAJA LOGICA (C4) ===
+BEGIN
+UPDATE 1
+UPDATE 1
+COMMIT
+ producto_id |      nombre       | precio_centavos | stock | disponible | eliminado |     capturado_en     
+-------------+-------------------+-----------------+-------+------------+-----------+----------------------
+           2 | Medialunas x6     |          320000 |     3 | t          | f         | 2026-11-02T02:24:15Z
+           3 | Agua mineral 2L   |          160000 |    40 | t          | f         | 2026-11-02T02:24:15Z
+           9 | Fideos secos 500g |          195000 |    30 | t          | f         | 2026-11-02T02:24:15Z
+          10 | Helado 1L         |          950000 |     0 | f          | t         | 2026-11-02T02:24:15Z
+          11 | Cerveza 1L        |          450000 |    10 | f          | t         | 2026-11-02T02:24:15Z
+(5 filas)
+
+=== 3. EXPORTANDO NUEVA INSTANTANEA A movil/servidor_snapshot.csv ===
+COPY 50011
+=== 4. CONSULTA FINAL EN bd2_tp8 (CONTROL DE PEDIDOS Y STOCK) ===
+ total_pedidos_despues 
+-----------------------
+                200005
+(1 fila)
+
+ id_producto |      nombre       | precio  | stock | activo 
+-------------+-------------------+---------+-------+--------
+           2 | Medialunas x6     | 3200.00 |     3 | t
+           3 | Agua mineral 2L   | 1600.00 |    40 | t
+           9 | Fideos secos 500g | 1950.00 |    30 | t
+          10 | Helado 1L         | 9500.00 |     0 | f
+          11 | Cerveza 1L        | 4500.00 |    10 | f
+(5 filas)
+

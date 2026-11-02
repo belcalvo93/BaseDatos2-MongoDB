@@ -96,3 +96,22 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 - La importación: corrida dos veces seguidas da los mismos conteos (50011 / 50011 / 10048 / 39963).
 - El semáforo: en una base de prueba, con los cambios del servidor simulados sobre `snapshot_servidor`, dio `CONFLICTO`, `RECHAZADO` (stock, baja, no disponible, inexistente, sin ítems, rojo + amarillo) y `SIMULADO_APROBADO` con el motivo correcto. Corrido dos veces dio una salida idéntica. Un `solicitud_uuid` repetido y dos `PENDIENTE` del mismo borrador dieron error de `UNIQUE`. `PRAGMA integrity_check` dio `ok`.
 - El README: se siguió paso a paso desde una base de la tablet vacía.
+
+---
+
+## Entrada 7 · 01/11/2026 · Hernán González · OpenCode (agente Build)
+
+**Qué se pidió:** a partir de la Tarea 6 de `tasks.md` y de los productos fijos del bloque B (3, 2, 11 y 9), generar `food-store/postgresql/casos_servidor.sql` (consulta inicial, preparación de C2 y C4 en `bd2_tp8`, reexportación del CSV y consulta final de pedidos y stock), `food-store/movil/casos_sqlite.sql` (ejecución completa de los casos C2 a C6 sobre `foodstore_movil.db` usando `importar_catalogo.sql` y `semaforo.sql`) y `food-store/docs/2c_casos_y_3a_mapa.md` (explicación de los casos C2–C6 con la frase de la parada 8 sobre idempotencia en el servidor y mapa de capas de datos de la consigna 3.a).
+
+**Qué se aceptó:** los UUIDs fijos (`b0000000-...-000000000202` a `205` y `c0000000-...-000000000201` a `205`), el bloqueo de seguridad en `casos_servidor.sql` para abortar si la base no es `bd2_tp8`, el reenvío de C2 con actualización de `precio_unitario_centavos = 160000` y `total_centavos = 160000` más nueva fila en `cola_sync`, la comprobación de C4 en `v_catalogo_disponible` (`0`) vs. `producto_cache` (`eliminado = 1`), y el diagrama junto con la tabla comparativa de los tres motores (PostgreSQL, MongoDB y SQLite).
+
+**Qué se corrigió:**
+- En la primera versión de `casos_sqlite.sql`, la prueba C6 intentaba reinsertar `c0000000-0000-4000-8000-000000000205` con `.bail off` y enseguida volvía a activar `.bail on` (o llamaba a `.read movil/semaforo.sql`, que tiene `.bail on`). En el CLI de SQLite, `process_input()` acumula el contador de errores (`errCnt`) durante un `.read`; al reactivar `.bail on` con `errCnt > 0`, el script principal se abortaba antes de terminar C6. Se reordenó C6 para correr primero la parte a (reejecución idempotente de `semaforo.sql` con `.bail on`) y al final la parte b (inserción duplicada de `solicitud_uuid` con `.bail off`), seguida de las consultas de verificación e integridad.
+- En C6.b se verificó que la solicitud `205` ya estuviera en estado `SIMULADO_APROBADO` antes de reintentar el `INSERT` con el mismo `solicitud_uuid`, para que el rechazo provenga exclusivamente de la `PRIMARY KEY (solicitud_uuid)` (`UNIQUE constraint failed: cola_sync.solicitud_uuid`) y no del índice parcial `ux_cola_una_pendiente`.
+
+**Qué se descartó:** dejar `movil/servidor_snapshot.csv` modificado en el árbol de trabajo después de correr los casos, porque generaba un diff de 50011 líneas por el `capturado_en` de `now()` y alteraba los conteos iniciales del paso 5 del `README.md` (`10048` lápidas → `10049`). El script `casos_servidor.sql` exporta el CSV actualizado cuando se corre la prueba de C2–C6, y en el repositorio se conserva el CSV de la instantánea inicial para que el paso 5 siga siendo reproducible desde cero.
+
+**Cómo se comprobó:**
+- En PostgreSQL (`bd2_tp8`): se ejecutó `psql -U postgres -d bd2_tp8 -f postgresql/casos_servidor.sql`. Tanto al inicio como al final `SELECT count(*) FROM pedido` dio `200005` y los stocks de los productos `(2, 3, 9, 10, 11)` se mantuvieron en `(3, 40, 30, 0, 10)` (evidencia en `food-store/evidencias/salida_casos_servidor_postgresql.txt`). En `bd2_tp3` se verificó que el producto 3 sigue en `$1400.00` y el 11 en `activo = true`.
+- En SQLite (`movil/foodstore_movil.db`): se ejecutó `sqlite3 movil/foodstore_movil.db ".read movil/casos_sqlite.sql"`. La primera corrida del semáforo dejó C2 en `CONFLICTO`, C3 y C4 en `RECHAZADO` y C5 en `SIMULADO_APROBADO`; el reenvío de C2 con `202b` dio `SIMULADO_APROBADO` conservando el historial de `201`; la segunda corrida del semáforo no alteró ninguna fila; y el duplicado de `solicitud_uuid` devolvió `Runtime error: UNIQUE constraint failed: cola_sync.solicitud_uuid (19)`. `PRAGMA foreign_key_check` dio vacío y `PRAGMA integrity_check` dio `ok` (evidencia en `food-store/evidencias/salida_casos_c2_c6_sqlite.txt`).
+
