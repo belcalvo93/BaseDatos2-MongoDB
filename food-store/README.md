@@ -104,12 +104,13 @@ El detalle de cada caso y el mapa de los 3 motores están en `docs/2c_casos_y_3a
 
 ### 8. Consulta final en PostgreSQL
 
-Antes y después de la simulación:
+La consulta **inicial** está en el paso 1 de `casos_servidor.sql`. La **final** se corre **después** de `casos_sqlite.sql`:
 
-```sql
-SELECT count(*) FROM pedido;                                          -- 200005
-SELECT id_producto, stock FROM producto WHERE id_producto IN (2, 3, 9, 10, 11) ORDER BY 1;
+```bash
+psql -U postgres -d bd2_tp8 -f postgresql/consulta_final.sql > evidencias/salida_consulta_final_postgresql.txt 2>&1
 ```
+
+Esperado: `total_pedidos_despues = 200005` y stock `3 · 40 · 30 · 0 · 10` en los productos 2, 3, 9, 10 y 11.
 
 La cantidad de pedidos y el stock no cambian por la simulación. Lo único que cambia en `bd2_tp8` es lo que se preparó a mano para C2 (precio del producto 3) y C4 (`activo` del producto 11).
 
@@ -176,7 +177,8 @@ Al final: `PRAGMA foreign_key_check` sin filas y `PRAGMA integrity_check` = `ok`
 | `docs/1a_datos_que_viajan.md` | 1.a | Belén |
 | `docs/kiro/` | 4.a spec (requirements, design, tasks) | Belén |
 | `docs/bitacora_ia.md` | 4.b bitácora de IA | todos |
-| `postgresql/casos_servidor.sql` | 2.c preparación en `bd2_tp8` y consulta inicial/final | Hernán |
+| `postgresql/casos_servidor.sql` | 2.c preparación en `bd2_tp8` y consulta inicial | Hernán |
+| `postgresql/consulta_final.sql` | 2.c consulta final, después de la simulación | Belén |
 | `movil/casos_sqlite.sql` | 2.c ejecución de los casos C2–C6 en SQLite | Hernán |
 | `docs/2c_casos_y_3a_mapa.md` | 2.c explicación de casos C2–C6 y 3.a mapa de 3 motores | Hernán |
 | `docs/informe.pdf` | informe (máx. 6 páginas) | Hernán |

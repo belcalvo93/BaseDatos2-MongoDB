@@ -52,6 +52,13 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 | 01/11/2026 | OpenCode (agente Plan) + Gemini (Antigravity) | Revisión de scripts de la cursada y redacción de `food-store/docs/3c_code_review_ia.md` (3.c) | Scripts de U1–U6 (`base-datos-2`), U7 y U8 (`BaseDatos2-MongoDB`) y auditorías en modo Plan | Tabla de 10 hallazgos con decisiones y desarrollo de 4 casos (U7, U6, U5/U3 y U8) | **Aceptado con descartes fundados** | Se incluyeron 2 hallazgos corregidos (U6 `usuario` en `ANALYZE` y `.conteo`; U5/U3 revocación de `INSERT/UPDATE` directo y bloqueo de reseteo a `ADMIN`) y 2 propuestas de IA descartadas con prueba en motor (U7 índice único multikey que bloquea ventas con `E11000`; U8 `printf` en vista y `UNIQUE` total en `cola_sync`), además de descartar el falso positivo de OpenCode sobre `n_live_tup = 0` en `health_check.sql`. |
 | 01/11/2026 | Gemini (Antigravity) | Consolidar `food-store/docs/bitacora_ia.md` y `food-store/docs/DUIA.md` (4.b) | Entradas 1 a 5 de Belén + Entrada 6 de Elías + Entrada 7 de Hernán + registros del Bloque D | Bitácora completa con las 9 entradas de los 4 bloques y documento DUIA consolidado | **Aceptado** | Verificado contra los requisitos de la consigna 4.b (todas las entradas de los 4 integrantes con qué se pidió, qué se aceptó, qué se descartó y por qué, más la DUIA). |
 
+
+**Revisión final (Belén Calvo)**
+
+| Fecha | Herramienta | Propósito | Output | Decisión | Motivo y comprobación en el motor |
+|---|---|---|---|---|---|
+| 02/11/2026 | Claude | Revisión final del repo contra la consigna y la clase del 02/11 (consulta final, 1.a) | `postgresql/consulta_final.sql`, filas nuevas en 1.a y tabla de 1.a reformateada | **Aceptado con 1 descarte** | Se descartó agregar un estado `ANULADO` porque la consigna fija los 4 estados. Comprobado reproduciendo el flujo SQLite completo y corriendo la consulta final en `bd2_tp8` después de la simulación. |
+
 ---
 
 ## 3. Apartamientos del flujo declarados

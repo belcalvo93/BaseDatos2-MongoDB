@@ -210,7 +210,7 @@ Error near line 154 of movil/casos_sqlite.sql: UNIQUE constraint failed: cola_sy
 
 ### 1.7 Consulta final en PostgreSQL (`bd2_tp8`) — Después de la simulación
 
-**Comando (`psql -U postgres -d bd2_tp8`):**
+**Comando:** se corre **después** de `movil/casos_sqlite.sql`, con `postgresql/consulta_final.sql` (salida en `evidencias/salida_consulta_final_postgresql.txt`):
 ```sql
 SELECT count(*) AS total_pedidos_despues FROM pedido;
 

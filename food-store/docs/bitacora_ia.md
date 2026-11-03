@@ -144,3 +144,18 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 - La ejecución no interactiva de `opencode run --agent plan` desde una subshell sin TTY: como `opencode.json` tiene `"bash": { "*": "ask" }`, el comando espera confirmación interactiva y queda bloqueado; la revisión se apoya en las corridas en modo Plan y las comprobaciones directas en `psql`, `mongosh` y `sqlite3`.
 
 **Cómo se comprobó:** cada uno de los 4 hallazgos desarrollados cuenta con su evidencia de ejecución en el motor: `evidencias/salida_prueba_indice_unico_ia.txt` (`mongosh`, U7), `mantenimiento/evidencias/maintenance_salida.txt` y `restore_test_v2_salida.txt` (`psql`, U6), pruebas con `SET ROLE` dentro de `BEGIN … ROLLBACK` (`psql`, U5) y `food-store/evidencias/salida_pruebas_sqlite.txt` (`sqlite3`, U8).
+
+---
+
+## Entrada 10 · 02/11/2026 · Belén Calvo · Claude
+
+**Qué se pidió:** revisar el repo completo contra la consigna y contra la clase del 02/11 de Neira, y proponer las correcciones necesarias.
+
+**Qué se aceptó:**
+- La consulta final de PostgreSQL estaba al final de `casos_servidor.sql`, que se corre **antes** de `casos_sqlite.sql`: no mostraba el estado posterior a la simulación. Se agregó `postgresql/consulta_final.sql`, que se corre después, con su evidencia.
+- En 1.a se agregaron dos filas que Neira mencionó en clase: del usuario viaja **solo el id** y del pago **solo la forma** (efectivo, tarjeta o transferencia).
+- Se rehízo la tabla de `docs/1a_datos_que_viajan.md`, que había perdido el formato de tabla al pegarla.
+
+**Qué se descartó:** agregar un estado `ANULADO` a `cola_sync` para cuando el cliente no acepta el precio nuevo (Neira dijo que en ese caso se anula el pedido). La consigna fija los 4 estados (`PENDIENTE`, `CONFLICTO`, `RECHAZADO`, `SIMULADO_APROBADO`) y el plan de mantenimiento (3.b) ya indica que, si el cliente no acepta, se descarta el borrador.
+
+**Cómo se comprobó:** se reprodujo en `sqlite3` el flujo de `schema_sqlite.sql`, `importar_catalogo.sql` (50.011 filas, 10.048 lápidas) y `casos_sqlite.sql` con la instantánea modificada: C2 `CONFLICTO` y luego `SIMULADO_APROBADO`, C3 y C4 `RECHAZADO`, C5 `SIMULADO_APROBADO`, C6 error de PK sin reevaluar, `integrity_check = ok`. La consulta final se corrió en `bd2_tp8` después de la simulación (ver `evidencias/salida_consulta_final_postgresql.txt`).
