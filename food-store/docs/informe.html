@@ -70,7 +70,9 @@ a { color: #0f4c81; text-decoration: none; }
     <tr><td><code>descripcion</code>, <code>id_categoria</code>, <code>created_at</code></td><td class="c">No</td><td>—</td><td>No hacen falta para vender; la tablet tiene poco espacio.</td></tr>
     <tr><td><code>cliente</code> (nombre, apellido, email, teléfono)</td><td class="c">No</td><td>—</td><td>Datos personales: no hacen falta para vender y la tablet se puede perder.</td></tr>
     <tr><td><code>pedido</code> y <code>detalle_pedido</code></td><td class="c">No</td><td>—</td><td>Solo el servidor confirma y numera ventas.</td></tr>
-    <tr><td>Usuarios, contraseñas, medios de pago</td><td class="c">No</td><td>—</td><td>Riesgo sin beneficio; SQLite no tiene usuarios ni permisos.</td></tr>
+    <tr><td>Id del usuario (vendedor)</td><td class="c">Solo el id</td><td><code>usuario_id_servidor</code></td><td>Identifica quién arma el borrador; nombre, mail y contraseña no viajan.</td></tr>
+    <tr><td>Forma de pago</td><td class="c">Solo la forma</td><td><code>forma_pago</code></td><td>EFECTIVO, TARJETA o TRANSFERENCIA. Los datos de la tarjeta no viajan.</td></tr>
+    <tr><td>Historial de ventas, imágenes, atributos extra</td><td class="c">No</td><td>—</td><td>El historial lo arma el servidor, que confirma las ventas; lo demás no hace falta para vender.</td></tr>
   </tbody>
 </table>
 <p>A la tablet viaja solo lo necesario para mostrar el catálogo y armar borradores sin señal. Los datos personales no viajan porque la Ley 25.326 pide datos "adecuados, pertinentes y no excesivos" (art. 4) y que se cuide su seguridad (art. 9): en un dispositivo que se puede perder y que no tiene usuarios ni permisos, guardar poco es la principal medida de seguridad. <b>La fuente de verdad es PostgreSQL</b>: lo que guarda la tablet es una copia con fecha que puede estar vieja.</p>
@@ -118,7 +120,9 @@ a { color: #0f4c81; text-decoration: none; }
 
 <div class="section-title">Consulta final en PostgreSQL: la simulación no cambió pedidos ni stock</div>
 <div class="grid-2">
-  <div class="code-block">-- psql -U postgres -d bd2_tp8 (antes y después)
+  <div class="code-block">-- antes: paso 1 de casos_servidor.sql
+-- después: postgresql/consulta_final.sql,
+--          corrido DESPUÉS de casos_sqlite.sql
 SELECT count(*) FROM pedido;
 SELECT id_producto, nombre, precio, stock, activo
 FROM producto
@@ -136,7 +140,7 @@ ORDER BY id_producto;</div>
     </table>
   </div>
 </div>
-<p>Pedidos y stock quedaron iguales. Los dos únicos cambios en <code>bd2_tp8</code> son los que se prepararon a mano para C2 y C4, antes de simular. Salidas completas en <code>evidencias/salida_casos_servidor_postgresql.txt</code> y <code>evidencias/salida_casos_c2_c6_sqlite.txt</code>.</p>
+<p>Pedidos y stock quedaron iguales. Los dos únicos cambios en <code>bd2_tp8</code> son los que se prepararon a mano para C2 y C4, antes de simular. Salidas completas en <code>evidencias/salida_casos_servidor_postgresql.txt</code>, <code>evidencias/salida_casos_c2_c6_sqlite.txt</code> y <code>evidencias/salida_consulta_final_postgresql.txt</code>.</p>
 
 <!-- =========================== 3.a =========================== -->
 <h2>Consigna 3.a · Mapa de la capa de datos <small>docs/2c_casos_y_3a_mapa.md</small></h2>
