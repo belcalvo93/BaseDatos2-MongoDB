@@ -1,7 +1,7 @@
 # BaseDatos2-MongoDB
 
 Base de Datos II — UTN · Proyecto Food Store
-Repositorio de los TP 7 (MongoDB) y TP 8 (SQLite). Los TP anteriores están en el repo relacional `base-datos-2` (y archivados acá en la etiqueta `archivo-tps-sql`).
+Repositorio de los TP 7 (MongoDB) y TP 8 (SQLite). Los TP 1 a 6 completos están en el repo relacional [`base-datos-2`](https://github.com/belcalvo93/base-datos-2). La etiqueta `archivo-tps-sql` de este repo guarda solo una copia de los TP 1 a 3.
 
 **Integrantes:** Bruno Fiouchetta, Elías Tello, Belén Calvo, Hernán González
 
@@ -32,3 +32,28 @@ mongosh --quiet --file prueba_indice_unico_ia.js         # prueba del índice de
 ```
 
 `consultas_mongodb.js` borra y recrea la colección, así que se puede correr varias veces. La verificación `total = suma de líneas` debe dar 0 pedidos descuadrados.
+
+## TP 8 — SQLite (la base de la tablet)
+
+El food truck vende en una feria sin señal. La tablet guarda en SQLite una copia del catálogo, arma borradores sin conexión y, al volver la señal, se **simula** la sincronización con PostgreSQL con un semáforo (rojo `RECHAZADO`, amarillo `CONFLICTO`, verde `SIMULADO_APROBADO`). **El móvil propone, el servidor dispone:** la tablet nunca cambia precio, stock ni ventas, y `SIMULADO_APROBADO` no es una venta.
+
+Todo está en [`food-store/`](food-store/). El orden para crear todo desde cero está en [`food-store/README.md`](food-store/README.md).
+
+| Entregable | Archivo | Consigna |
+|---|---|---|
+| Qué datos viajan | `food-store/docs/1a_datos_que_viajan.md` | 1.a |
+| Esquema SQLite (6 tablas STRICT) | `food-store/movil/schema_sqlite.sql` | 1.b |
+| Pruebas (COMMIT, ROLLBACK, subtotal, C1, C7) | `food-store/movil/pruebas_sqlite.sql` | 1.c |
+| Vista de la instantánea y CSV | `food-store/postgresql/10_snapshot_catalogo.sql`, `food-store/movil/servidor_snapshot.csv`, `food-store/movil/importar_catalogo.sql` | 2.a |
+| Semáforo con registro de evaluaciones | `food-store/movil/semaforo.sql` | 2.b |
+| Casos C2–C6 y consulta final | `food-store/postgresql/casos_servidor.sql`, `food-store/movil/casos_sqlite.sql`, `food-store/postgresql/consulta_final.sql`, `food-store/docs/2c_casos_y_3a_mapa.md` | 2.c |
+| Mapa de los 3 motores | `food-store/docs/2c_casos_y_3a_mapa.md` | 3.a |
+| Plan de mantenimiento | `food-store/docs/3b_plan_mantenimiento.md` | 3.b |
+| Code review con IA e inventario U1–U8 | `food-store/docs/3c_code_review_ia.md`, `food-store/docs/inventario_scripts_u1_u8.md` | 3.c |
+| Spec en Kiro (6 requisitos EARS) | `.kiro/specs/tp8-tablet/` (copia en `food-store/docs/kiro/`) | 4.a |
+| Bitácora de IA y DUIA | `food-store/docs/bitacora_ia.md`, `food-store/docs/DUIA.md` | 4.b |
+| Evidencias de ejecución | `food-store/evidencias/` | — |
+| Informe (máx. 6 páginas) | `food-store/docs/informe.pdf` | — |
+
+**Etiquetas:** `tp8` es la versión entregada y corregida por el profesor; `tp8-v2` es la versión con las correcciones (C3 con el stock que baja en el servidor, C6 que devuelve el resultado guardado, registro de evaluaciones, consulta con subtotal, inventario U1–U8 y 6 requisitos EARS).
+
