@@ -85,28 +85,34 @@ dddddddd-0000-4000-8000-000000000202 | cccccccc-0000-4000-8000-000000000002 | SI
 
 ---
 
-### 1.3 Caso C3 · Cantidad mayor que el stock (`RECHAZADO`)
+### 1.3 Caso C3 · El stock baja en el servidor después de armar el borrador (`RECHAZADO`)
 
 **Comando:**
 ```sql
--- En SQLite: el borrador pide 5 unidades del producto 2 (Medialunas x6), cuyo stock en el servidor es 3
+-- En SQLite: el borrador pide 2 unidades del producto 2 (Medialunas x6).
+-- Es VÁLIDO al armarlo: la instantánea inicial muestra stock 3.
 BEGIN;
 INSERT INTO pedido_borrador (id_local, usuario_id_servidor, forma_pago, creado_en)
 VALUES ('cccccccc-0000-4000-8000-000000000003', 1, 'TARJETA', '2026-11-02T10:00:03Z');
 INSERT INTO item_borrador (id_local, producto_id, cantidad, precio_centavos_visto)
-VALUES ('cccccccc-0000-4000-8000-000000000003', 2, 5, 320000);
+VALUES ('cccccccc-0000-4000-8000-000000000003', 2, 2, 320000);
 INSERT INTO cola_sync (solicitud_uuid, id_local, creada_en)
 VALUES ('dddddddd-0000-4000-8000-000000000003', 'cccccccc-0000-4000-8000-000000000003', '2026-11-02T10:00:03Z');
 COMMIT;
-.read movil/semaforo.sql
 ```
+```sql
+-- En bd2_tp8 (postgresql/casos_servidor.sql): mientras la tablet no tiene señal,
+-- otra tablet vende 2 unidades y el servidor lo registra
+UPDATE producto SET stock = 1 WHERE id_producto = 2;
+```
+Después se exporta la instantánea nueva, se importa y se corre `semaforo.sql`.
 
 **Resultado:**
 ```text
-dddddddd-0000-4000-8000-000000000003 | cccccccc-0000-4000-8000-000000000003 | RECHAZADO | stock insuficiente: producto 2 (pide 5, hay 3)
+dddddddd-0000-4000-8000-000000000003 | cccccccc-0000-4000-8000-000000000003 | RECHAZADO | stock insuficiente: producto 2 (pide 2, hay 1)
 ```
 
-**Explicación:** Como la cantidad solicitada en el borrador (`5`) supera el stock informado por el servidor en la instantánea (`3`), el semáforo aplica luz roja (`RECHAZADO`) detallando cuántas unidades se pidieron y cuántas hay. El stock real en PostgreSQL (`3` unidades) permanece intacto porque la tablet nunca descuenta stock del servidor.
+**Explicación:** El borrador era válido cuando se armó, pero el stock que decide es el del servidor, no el que vio la tablet: con la instantánea nueva hay 1 unidad y se piden 2, así que el semáforo da luz roja (`RECHAZADO`) con cuántas se pidieron y cuántas hay. El cambio de stock (3 → 1) es preparación manual del caso en `bd2_tp8`; la simulación no descuenta nada.
 
 ---
 
@@ -185,26 +191,35 @@ dddddddd-0000-4000-8000-000000000005 | cccccccc-0000-4000-8000-000000000005 | SI
 **Comando:**
 ```sql
 -- 6a) Volver a ejecutar el semáforo sobre la cola ya evaluada:
+SELECT count(*) AS evaluaciones_antes FROM evaluacion_sync;
 .read movil/semaforo.sql
+SELECT count(*) AS evaluaciones_despues FROM evaluacion_sync;
 
--- 6b) Intentar reinsertar en cola_sync una solicitud con un solicitud_uuid ya enviado:
+-- 6b) INSERT común con un solicitud_uuid ya evaluado:
 INSERT INTO cola_sync (solicitud_uuid, id_local, creada_en)
 VALUES ('dddddddd-0000-4000-8000-000000000005', 'cccccccc-0000-4000-8000-000000000005', '2026-11-02T10:06:00Z');
+
+-- 6c) Reenvío idempotente: no hace nada y devuelve el resultado guardado
+INSERT INTO cola_sync (solicitud_uuid, id_local, creada_en)
+VALUES ('dddddddd-0000-4000-8000-000000000005', 'cccccccc-0000-4000-8000-000000000005', '2026-11-02T10:06:00Z')
+ON CONFLICT (solicitud_uuid) DO NOTHING;
+SELECT changes() AS filas_insertadas;
+SELECT solicitud_uuid, estado, motivo FROM cola_sync
+WHERE solicitud_uuid = 'dddddddd-0000-4000-8000-000000000005';
+SELECT count(*) AS evaluaciones_de_esta_solicitud FROM evaluacion_sync
+WHERE solicitud_uuid = 'dddddddd-0000-4000-8000-000000000005';
 ```
 
 **Resultado:**
 ```text
--- 6a) Al correr semaforo.sql de nuevo:
-filas_instantanea   fecha_de_la_copia    quedan_pendientes
------------------  --------------------  -----------------
-            50011  2026-11-02T02:23:19Z                  0
-(Las 5 solicitudes en cola_sync conservan exactamente su mismo estado y motivo, sin cambios.)
-
--- 6b) Al intentar reinsertar el mismo solicitud_uuid:
-Error near line 154 of movil/casos_sqlite.sql: UNIQUE constraint failed: cola_sync.solicitud_uuid
+-- 6a) evaluaciones_antes = 5 · evaluaciones_despues = 5 (quedan_pendientes = 0; nada se reevalúa)
+-- 6b) Error near line 198 of movil/casos_sqlite.sql: UNIQUE constraint failed: cola_sync.solicitud_uuid
+-- 6c) filas_insertadas = 0
+dddddddd-0000-4000-8000-000000000005 | SIMULADO_APROBADO | todo coincide con la instantánea (simulación, no es una venta)
+evaluaciones_de_esta_solicitud = 1
 ```
 
-**Explicación e idempotencia real en el servidor (Parada 8):** En la tablet, la clave primaria `solicitud_uuid` impide duplicar el envío en `cola_sync`, y el filtro `WHERE estado = 'PENDIENTE'` del semáforo garantiza que repetir la simulación devuelva el resultado ya guardado sin reevaluarlo. **Dónde va la protección definitiva (Parada 8):** en producción, la idempotencia real va **en el servidor (PostgreSQL)** mediante una tabla `solicitud_movil (solicitud_uuid PRIMARY KEY, ...)` en la que, dentro de la **misma transacción** que crea el pedido y descuenta el stock, se ejecuta `INSERT ... ON CONFLICT (solicitud_uuid) DO NOTHING`; si el UUID ya existía por un reintento de red, el servidor no crea otro pedido ni descuenta stock dos veces.
+**Explicación e idempotencia real en el servidor (Parada 8):** En la tablet, la clave primaria `solicitud_uuid` impide duplicar el envío (6b), y el reenvío con `ON CONFLICT DO NOTHING` **devuelve el resultado anterior sin evaluarlo de nuevo** (6c): no inserta filas, no cambia el estado y no agrega evaluaciones, porque el semáforo solo evalúa `PENDIENTE` (6a). **Dónde va la protección definitiva (Parada 8):** en producción, la idempotencia real va **en el servidor (PostgreSQL)** mediante una tabla `solicitud_movil (solicitud_uuid PRIMARY KEY, ...)` en la que, dentro de la **misma transacción** que crea el pedido y descuenta el stock, se ejecuta `INSERT ... ON CONFLICT (solicitud_uuid) DO NOTHING`; si el UUID ya existía por un reintento de red, el servidor no crea otro pedido ni descuenta stock dos veces.
 
 ---
 
@@ -229,7 +244,7 @@ ORDER BY id_producto;
 
  id_producto |      nombre       | precio  | stock | activo 
 -------------+-------------------+---------+-------+--------
-           2 | Medialunas x6     | 3200.00 |     3 | t
+           2 | Medialunas x6     | 3200.00 |     1 | t
            3 | Agua mineral 2L   | 1600.00 |    40 | t
            9 | Fideos secos 500g | 1950.00 |    30 | t
           10 | Helado 1L         | 9500.00 |     0 | f
@@ -237,7 +252,7 @@ ORDER BY id_producto;
 (5 filas)
 ```
 
-**Conclusión de la verificación:** La cantidad de pedidos en PostgreSQL antes (`200005`) y después (`200005`) de toda la simulación es exactamente la misma, y el `stock` de los cinco productos (`3, 40, 30, 0, 10`) no sufrió ningún cambio. Los únicos valores distintos en `bd2_tp8` son los dos que se prepararon a mano antes de simular (`precio = 1600.00` en el producto 3 para C2 y `activo = false` en el producto 11 para C4), confirmando que la simulación de la tablet no escribe ventas ni toca el stock del servidor.
+**Conclusión de la verificación:** El servidor ya preparado (paso 4 de `casos_servidor.sql`, antes de simular) y la consulta final (después de simular) muestran lo mismo: `200005` pedidos y stock `1, 40, 30, 0, 10`. La simulación de la tablet no escribió ventas ni tocó el stock. Respecto de la consulta inicial (stock `3, 40, 30, 0, 10`), los únicos valores distintos en `bd2_tp8` son los que se prepararon a mano antes de simular: `precio = 1600.00` en el producto 3 (C2), `stock = 1` en el producto 2 (C3, venta de otra tablet) y `activo = false` en el producto 11 (C4).
 
 ---
 

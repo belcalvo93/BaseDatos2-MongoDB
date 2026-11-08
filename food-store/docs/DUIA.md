@@ -59,6 +59,16 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 |---|---|---|---|---|---|
 | 02/11/2026 | Claude | Revisión final del repo contra la consigna y la clase del 02/11 (consulta final, 1.a) | `postgresql/consulta_final.sql`, filas nuevas en 1.a y tabla de 1.a reformateada | **Aceptado con 1 descarte** | Se descartó agregar un estado `ANULADO` porque la consigna fija los 4 estados. Comprobado reproduciendo el flujo SQLite completo y corriendo la consulta final en `bd2_tp8` después de la simulación. |
 
+**Corrección pedida por el profesor (Belén Calvo)**
+
+| Fecha | Herramienta | Propósito | Output | Decisión | Motivo y comprobación en el motor |
+|---|---|---|---|---|---|
+| 07–08/11/2026 | Claude (chat) | Adaptar los scripts a la corrección: registro de evaluaciones, C3 con stock que baja, C6 idempotente y consulta con subtotal | `schema_sqlite.sql`, `semaforo.sql`, `casos_sqlite.sql`, `casos_servidor.sql`, `consulta_final.sql`, `pruebas_sqlite.sql` | **Aceptado** | Corrida completa desde cero en `bd2_tp8` y `foodstore_movil.db` (bitácora, entradas 11 y 13). |
+| 07–08/11/2026 | Kiro | Agregar REQ-05 y REQ-06 y actualizar `design.md` y `tasks.md` | Los tres archivos de la spec | **Descartado** | Caracteres de control en lugar de comillas invertidas, bloques de código rotos y errores de contenido (bitácora, entrada 12). Se tomaron la redacción de REQ-05 y REQ-06, la nota del C3 y la explicación de las dos tablas. |
+| 07–08/11/2026 | Claude (chat) | Rearmar la spec desde `main`, inventario U1–U8, 3.b con la U6 corregida, READMEs e informe | `.kiro/specs/tp8-tablet/` (copia en `docs/kiro/`), `inventario_scripts_u1_u8.md`, `3b_plan_mantenimiento.md`, `README.md`, `informe.html` | **Aceptado con correcciones** | `grep -c SHALL` = 8 y sin caracteres de control; inventario controlado contra `git ls-files` (56 scripts); valores del informe tomados de las evidencias regeneradas (bitácora, entrada 13). |
+
+En ningún prompt se enviaron contraseñas, correos ni datos personales: solo scripts, nombres de columnas y salidas de prueba con datos inventados.
+
 ---
 
 ## 3. Apartamientos del flujo declarados
@@ -67,6 +77,8 @@ En cumplimiento de la pauta de la cátedra (*"se delega la escritura, nunca la d
 |---|---|---|---|
 | 01/11/2026 | Elías Tello | Uso de Claude Code para generar los scripts del Bloque B (`10_snapshot_catalogo.sql`, `importar_catalogo.sql`, `semaforo.sql` y `README.md`) a partir de `tasks.md` | Se trabajó en una única sesión manteniendo la regla de delegar la escritura y no la decisión: el autor verificó primero con `\d` en `bd2_tp8`, corrigió la lógica de baja por categoría y la guarda de base de datos, y comprobó cada script en `psql` y `sqlite3`. |
 | 01/11/2026 | Bruno Fiouchetta | Uso de Gemini (Antigravity) como asistente par junto con OpenCode (agente Plan) para estructurar el análisis de los puntos 3.b, 3.c y 4.b | En Windows, la invocación no interactiva de `opencode run --agent plan` queda en espera de confirmación de consola por la política `"bash": { "*": "ask" }` de `opencode.json`. Por eso se combinaron las auditorías en modo Plan de OpenCode ya ejecutadas en los repositorios con Gemini para consolidar la tabla transversal U1–U8 y la documentación, verificando cada afirmación contra las salidas reales de `psql`, `mongosh` y `sqlite3`. |
+
+| 07–08/11/2026 | Belén Calvo | La actualización de la spec (6 requisitos EARS) se pidió a Kiro, pero su salida se descartó y la versión final se rearmó con Claude a partir de la versión de `main` | Kiro rompió el formato de los tres archivos y cometió errores de contenido (bitácora, entrada 12). Se conservaron sus aportes válidos y cada cambio se comparó contra los scripts ya probados. |
 
 ---
 

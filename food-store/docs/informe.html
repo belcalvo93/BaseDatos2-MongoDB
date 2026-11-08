@@ -56,6 +56,19 @@ a { color: #0f4c81; text-decoration: none; }
 </div>
 <div class="highlight-box"><b>Regla de oro: el móvil propone, el servidor dispone.</b> La tablet (SQLite) solo consulta una copia del catálogo y arma borradores sin señal. Precio, stock y ventas los decide únicamente PostgreSQL. <code>SIMULADO_APROBADO</code> significa "pasaría las validaciones", <b>no es una venta</b>, y ningún script de la simulación escribe en PostgreSQL. Todo se hizo sobre <code>bd2_tp8</code>, una copia de <code>bd2_tp3</code> con datos inventados.</div>
 
+<div class="section-title">Correcciones respecto de la entrega anterior (devolución del profesor)</div>
+<table>
+  <thead><tr><th style="width:26%">Observación</th><th>Qué se cambió</th><th style="width:27%">Dónde</th></tr></thead>
+  <tbody>
+    <tr><td>C3 no reducía el stock oficial</td><td>El borrador pide 2 (stock 3, válido al armarlo); en <code>bd2_tp8</code> el stock baja a 1, como una venta de otra tablet → <code>RECHAZADO (pide 2, hay 1)</code>.</td><td>2.c · <code>casos_servidor.sql</code></td></tr>
+    <tr><td>C6 no devolvía el resultado anterior</td><td>Reenvío con <code>INSERT … ON CONFLICT DO NOTHING</code> (0 filas) y <code>SELECT</code> del resultado guardado, sin reevaluar.</td><td>2.c · <code>casos_sqlite.sql</code></td></tr>
+    <tr><td>Faltaba un registro de evaluaciones</td><td>Tabla STRICT <code>evaluacion_sync</code>: el semáforo guarda una fila por evaluación (instantánea usada, estado, motivo, fecha) en la misma transacción que actualiza <code>cola_sync</code>.</td><td>1.b, 2.b · <code>schema_sqlite.sql</code>, <code>semaforo.sql</code></td></tr>
+    <tr><td>Faltaba la consulta con subtotal</td><td>Subtotal por ítem y total del borrador en centavos y en pesos (Prueba 1b: 2 × 150000 = 300000 = $3000,00); en C2, subtotal visto contra actual.</td><td>1.c · <code>pruebas_sqlite.sql</code>, casos</td></tr>
+    <tr><td>Faltaba el inventario U1–U8</td><td>56 scripts de los dos repos, con qué hace cada uno, dónde se corre y su hallazgo del 3.c.</td><td>3.c · <code>docs/inventario_scripts_u1_u8.md</code></td></tr>
+    <tr><td>4 requisitos EARS (se piden 6)</td><td>REQ-05 (C1, catálogo sin conexión) y REQ-06 (C5, aprobación simulada); REQ-03 devuelve el resultado guardado. Los 7 casos quedan cubiertos.</td><td>4.a · <code>docs/kiro/</code></td></tr>
+  </tbody>
+</table>
+
 <!-- =========================== 1.a =========================== -->
 <h2>Consigna 1.a · Qué datos viajan a la tablet <small>docs/1a_datos_que_viajan.md · postgresql/10_snapshot_catalogo.sql</small></h2>
 <table>
@@ -79,12 +92,12 @@ a { color: #0f4c81; text-decoration: none; }
 
 <!-- =========================== 2.c =========================== -->
 <h2>Consigna 2.c · Los casos C2 a C6 <small>movil/casos_sqlite.sql · postgresql/casos_servidor.sql · evidencias/</small></h2>
-<p><b>Flujo de cada caso:</b> (1) borrador en SQLite dentro de <code>BEGIN … COMMIT</code> → (2) si el caso lo pide, cambio manual en <code>bd2_tp8</code> → (3) <code>\copy</code> de una instantánea nueva → (4) <code>.read movil/importar_catalogo.sql</code> (upsert al caché) → (5) <code>.read movil/semaforo.sql</code> → (6) lectura de <code>cola_sync</code>. Los productos fijos y sus datos iniciales en el servidor:</p>
+<p><b>Flujo de cada caso:</b> (1) borrador en SQLite dentro de <code>BEGIN … COMMIT</code> → (2) si el caso lo pide, cambio manual en <code>bd2_tp8</code> → (3) <code>\copy</code> de una instantánea nueva → (4) <code>.read movil/importar_catalogo.sql</code> (upsert al caché) → (5) <code>.read movil/semaforo.sql</code> → (6) lectura de <code>cola_sync</code> y del registro <code>evaluacion_sync</code>. Los productos fijos y sus datos iniciales en el servidor:</p>
 <table>
   <thead><tr><th class="c">id</th><th>Producto</th><th class="c">Precio</th><th class="c">Stock</th><th>Uso</th></tr></thead>
   <tbody>
     <tr><td class="c">3</td><td>Agua mineral 2L</td><td class="c">$1400,00</td><td class="c">40</td><td>C2: el precio se sube a $1600,00</td></tr>
-    <tr><td class="c">2</td><td>Medialunas x6</td><td class="c">$3200,00</td><td class="c">3</td><td>C3: el borrador pide 5</td></tr>
+    <tr><td class="c">2</td><td>Medialunas x6</td><td class="c">$3200,00</td><td class="c">3</td><td>C3: el borrador pide 2; después el stock baja a 1</td></tr>
     <tr><td class="c">11</td><td>Cerveza 1L</td><td class="c">$4500,00</td><td class="c">10</td><td>C4: se da de baja (<code>activo = false</code>)</td></tr>
     <tr><td class="c">9</td><td>Fideos secos 500g</td><td class="c">$1950,00</td><td class="c">30</td><td>C5: sin cambios</td></tr>
     <tr><td class="c">10</td><td>Helado 1L</td><td class="c">$9500,00</td><td class="c">0</td><td>C1/C7: ya dado de baja (no aparece en el catálogo)</td></tr>
@@ -97,11 +110,11 @@ a { color: #0f4c81; text-decoration: none; }
     <tr><td><b>C2</b></td>
       <td>Borrador: 2 × producto 3 visto a <code>140000</code>. En <code>bd2_tp8</code>: <code>UPDATE producto SET precio = 1600.00 WHERE id_producto = 3;</code> → instantánea → semáforo. Después: <code>UPDATE item_borrador SET precio_centavos_visto = 160000 …</code> + solicitud nueva <code>…000202</code> → semáforo.</td>
       <td><span class="badge warn">CONFLICTO</span> <code>precio cambió: producto 3 (visto 140000, actual 160000 centavos)</code><br><span class="badge ok">SIMULADO_APROBADO</span> en la solicitud nueva</td>
-      <td>El precio del servidor no coincide con el que vio la tablet: amarillo, se le pregunta al cliente en vez de decidir solo. El cliente acepta, se actualiza el borrador y una solicitud con <b>otro UUID</b> (lo permite el índice parcial <code>ux_cola_una_pendiente</code>) da verde. El conflicto queda registrado.</td></tr>
+      <td>El precio del servidor no coincide con el que vio la tablet: amarillo, se le pregunta al cliente en vez de decidir solo. Antes de aceptar se le muestran los dos subtotales ($2800,00 visto y $3200,00 actual). El cliente acepta, se actualiza el borrador y una solicitud con <b>otro UUID</b> (lo permite el índice parcial <code>ux_cola_una_pendiente</code>) da verde. El conflicto queda registrado.</td></tr>
     <tr><td><b>C3</b></td>
-      <td>Borrador: 5 × producto 2 (stock 3) → semáforo.</td>
-      <td><span class="badge no">RECHAZADO</span> <code>stock insuficiente: producto 2 (pide 5, hay 3)</code></td>
-      <td>Pide más de lo que informa la instantánea: rojo. El stock del servidor sigue en 3: la tablet nunca lo descuenta.</td></tr>
+      <td>Borrador: 2 × producto 2 (la instantánea inicial muestra stock 3). En <code>bd2_tp8</code>: <code>UPDATE producto SET stock = 1 WHERE id_producto = 2;</code> (venta de otra tablet) → instantánea → semáforo.</td>
+      <td><span class="badge no">RECHAZADO</span> <code>stock insuficiente: producto 2 (pide 2, hay 1)</code></td>
+      <td>El borrador era válido al armarlo, pero mientras la tablet no tenía señal otra tablet vendió y el servidor ya lo registró: rojo. La decisión la toma el stock del servidor, no el que vio la tablet, y la simulación no descuenta nada.</td></tr>
     <tr><td><b>C4</b></td>
       <td>Borrador: 1 × producto 11. En <code>bd2_tp8</code>: <code>UPDATE producto SET activo = false WHERE id_producto = 11;</code> → instantánea → importar → semáforo.</td>
       <td><span class="badge no">RECHAZADO</span> <code>dado de baja: producto 11</code><br>En <code>v_catalogo_disponible</code>: 0 filas · en <code>producto_cache</code>: la fila sigue con <code>eliminado = 1</code></td>
@@ -111,16 +124,30 @@ a { color: #0f4c81; text-decoration: none; }
       <td><span class="badge ok">SIMULADO_APROBADO</span> <code>todo coincide con la instantánea (simulación, no es una venta)</code></td>
       <td>Activo, con stock (2 ≤ 30) y mismo precio: verde. Solo dice que pasaría las validaciones; la venta existiría recién cuando PostgreSQL la confirme en su propia transacción.</td></tr>
     <tr><td><b>C6</b></td>
-      <td>(a) <code>.read movil/semaforo.sql</code> otra vez. (b) <code>INSERT INTO cola_sync</code> con <code>solicitud_uuid = …000005</code> (ya enviado).</td>
-      <td>(a) <code>quedan_pendientes = 0</code>, las 5 solicitudes sin cambios. (b) <code>UNIQUE constraint failed: cola_sync.solicitud_uuid</code></td>
-      <td>La clave primaria impide duplicar el envío y el semáforo solo evalúa <code>PENDIENTE</code>, así que repetirlo no reevalúa nada.</td></tr>
+      <td>(a) <code>.read movil/semaforo.sql</code> otra vez. (b) <code>INSERT</code> común con <code>solicitud_uuid = …000005</code> (ya evaluada). (c) <code>INSERT … ON CONFLICT (solicitud_uuid) DO NOTHING;</code> y <code>SELECT estado, motivo FROM cola_sync WHERE solicitud_uuid = …000005;</code></td>
+      <td>(a) <code>evaluacion_sync</code>: 5 filas antes y 5 después. (b) <code>UNIQUE constraint failed: cola_sync.solicitud_uuid</code>. (c) <code>changes() = 0</code> y devuelve <span class="badge ok">SIMULADO_APROBADO</span> con su motivo; 1 sola evaluación para esa solicitud.</td>
+      <td>La clave primaria impide duplicar el envío y el reenvío idempotente devuelve el resultado guardado sin evaluarlo de nuevo (parada 8): el semáforo solo evalúa <code>PENDIENTE</code>.</td></tr>
   </tbody>
 </table>
 <div class="highlight-box"><b>C6 · Dónde va la protección real (parada 8):</b> en el servidor. Una tabla <code>solicitud_movil (solicitud_uuid PRIMARY KEY, …)</code> y, en la <b>misma transacción</b> que crea el pedido y descuenta stock (con <code>SELECT … FOR UPDATE</code>), un <code>INSERT … ON CONFLICT (solicitud_uuid) DO NOTHING</code>: si el UUID ya llegó por un reintento de red, no se crea otro pedido ni se descuenta stock dos veces. El TP no la implementa.</div>
 
+<div class="section-title">Registro de evaluaciones (<code>evaluacion_sync</code>) al final de los casos</div>
+<table>
+  <thead><tr><th class="c">#</th><th>Solicitud</th><th>Estado</th><th>Motivo</th></tr></thead>
+  <tbody>
+    <tr><td class="c">1</td><td><code>…000002</code> (C2)</td><td><span class="badge warn">CONFLICTO</span></td><td>precio cambió: producto 3 (visto 140000, actual 160000 centavos)</td></tr>
+    <tr><td class="c">2</td><td><code>…000003</code> (C3)</td><td><span class="badge no">RECHAZADO</span></td><td>stock insuficiente: producto 2 (pide 2, hay 1)</td></tr>
+    <tr><td class="c">3</td><td><code>…000004</code> (C4)</td><td><span class="badge no">RECHAZADO</span></td><td>dado de baja: producto 11</td></tr>
+    <tr><td class="c">4</td><td><code>…000005</code> (C5)</td><td><span class="badge ok">SIMULADO_APROBADO</span></td><td>todo coincide con la instantánea (simulación, no es una venta)</td></tr>
+    <tr><td class="c">5</td><td><code>…000202</code> (C2, solicitud nueva)</td><td><span class="badge ok">SIMULADO_APROBADO</span></td><td>todo coincide con la instantánea (simulación, no es una venta)</td></tr>
+  </tbody>
+</table>
+<p>Las 5 filas tienen la fecha de la instantánea contra la que se evaluaron. Las corridas repetidas del semáforo y el reenvío del C6 no agregaron filas.</p>
+
 <div class="section-title">Consulta final en PostgreSQL: la simulación no cambió pedidos ni stock</div>
 <div class="grid-2">
-  <div class="code-block">-- antes: paso 1 de casos_servidor.sql
+  <div class="code-block">-- inicial: paso 1 de casos_servidor.sql
+-- preparado: paso 4 de casos_servidor.sql
 -- después: postgresql/consulta_final.sql,
 --          corrido DESPUÉS de casos_sqlite.sql
 SELECT count(*) FROM pedido;
@@ -130,17 +157,17 @@ WHERE id_producto IN (2, 3, 9, 10, 11)
 ORDER BY id_producto;</div>
   <div>
     <table>
-      <thead><tr><th>Dato</th><th class="c">Antes</th><th class="c">Después</th></tr></thead>
+      <thead><tr><th>Dato</th><th class="c">Inicial</th><th class="c">Preparado (a mano)</th><th class="c">Después de simular</th></tr></thead>
       <tbody>
-        <tr><td><code>count(*) FROM pedido</code></td><td class="c">200005</td><td class="c"><b>200005</b></td></tr>
-        <tr><td>Stock de 2 · 3 · 9 · 10 · 11</td><td class="c">3 · 40 · 30 · 0 · 10</td><td class="c"><b>3 · 40 · 30 · 0 · 10</b></td></tr>
-        <tr><td>Precio del producto 3</td><td class="c">1400.00</td><td class="c">1600.00 <i>(C2, a mano)</i></td></tr>
-        <tr><td><code>activo</code> del producto 11</td><td class="c">t</td><td class="c">f <i>(C4, a mano)</i></td></tr>
+        <tr><td><code>count(*) FROM pedido</code></td><td class="c">200005</td><td class="c">200005</td><td class="c"><b>200005</b></td></tr>
+        <tr><td>Stock de 2 · 3 · 9 · 10 · 11</td><td class="c">3 · 40 · 30 · 0 · 10</td><td class="c">1 · 40 · 30 · 0 · 10 <i>(C3)</i></td><td class="c"><b>1 · 40 · 30 · 0 · 10</b></td></tr>
+        <tr><td>Precio del producto 3</td><td class="c">1400.00</td><td class="c">1600.00 <i>(C2)</i></td><td class="c">1600.00</td></tr>
+        <tr><td><code>activo</code> del producto 11</td><td class="c">t</td><td class="c">f <i>(C4)</i></td><td class="c">f</td></tr>
       </tbody>
     </table>
   </div>
 </div>
-<p>Pedidos y stock quedaron iguales. Los dos únicos cambios en <code>bd2_tp8</code> son los que se prepararon a mano para C2 y C4, antes de simular. Salidas completas en <code>evidencias/salida_casos_servidor_postgresql.txt</code>, <code>evidencias/salida_casos_c2_c6_sqlite.txt</code> y <code>evidencias/salida_consulta_final_postgresql.txt</code>.</p>
+<p>Entre el servidor preparado y el final de la simulación, pedidos y stock quedaron iguales: la tablet no modificó PostgreSQL. Los únicos cambios en <code>bd2_tp8</code> respecto del estado inicial son los que se prepararon a mano para C2, C3 y C4, antes de simular. Salidas completas en <code>evidencias/salida_casos_servidor_postgresql.txt</code>, <code>evidencias/salida_casos_c2_c6_sqlite.txt</code> y <code>evidencias/salida_consulta_final_postgresql.txt</code>.</p>
 
 <!-- =========================== 3.a =========================== -->
 <h2>Consigna 3.a · Mapa de la capa de datos <small>docs/2c_casos_y_3a_mapa.md</small></h2>
@@ -167,7 +194,7 @@ ORDER BY id_producto;</div>
 <h2>Consigna 3.b · Plan de mantenimiento (agregado al plan de la U6) <small>docs/3b_plan_mantenimiento.md</small></h2>
 <p><b>¿Qué se respalda y cómo se prueba la restauración?</b></p>
 <ul>
-  <li><b>PostgreSQL:</b> respaldo diario con <code>backup_foodstore.sh</code> (<code>pg_dump -Fc</code> más un archivo <code>.conteo</code> con las filas de cada tabla, sin contraseñas en el script gracias a <code>pgpass.conf</code>). La restauración se prueba cada semana con <code>restore_test.sh</code> sobre la base descartable <code>foodstore_restore_test</code>: se mide el tiempo (RTO 15 min) y se compara el conteo contra el <code>.conteo</code> del respaldo.</li>
+  <li><b>PostgreSQL:</b> respaldo diario con <code>backup_foodstore.sh</code> (hoy se corre a mano; programarlo queda como mejora): genera la huella de 11 claves (<code>conteo_referencia.sql</code>: filas de las 6 tablas, total facturado, tablas, vistas, restricciones e índices), hace <code>pg_dump -Fc</code>, lo verifica con <code>pg_restore -l</code>, guarda el <code>.sha256</code> y deja una línea PASS/FAIL en el log; la contraseña va en <code>pgpass.conf</code>. La restauración se prueba cada semana con <code>restore_test.sh</code>: verifica el SHA256, pide <b>autorización escrita</b>, restaura solo en <code>foodstore_restore_test</code> (desde <code>template0</code>, con <code>--exit-on-error</code>), valida la huella <b>11/11</b> y <b>8 indicadores</b> de integridad en 0, y mide RTO y RPO. Último simulacro (07/11): <b>PASS, RTO 4,21 s y RPO 19 s</b> (metas: 15 min y 24 h). Límite: no recupera roles ni permisos (mejora: <code>pg_dumpall --globals-only</code>).</li>
   <li><b>MongoDB:</b> <code>mongodump --db foodstore</code> diario y prueba semanal con <code>mongorestore</code> en una base temporal, comparando la cantidad de documentos.</li>
   <li><b>SQLite:</b> el catálogo de la tablet no se respalda porque se regenera desde PostgreSQL. Si al cerrar quedan solicitudes sin resolver en <code>cola_sync</code>, se copia el archivo <code>.db</code> (<code>.backup</code>) y se verifica con <code>PRAGMA integrity_check;</code>.</li>
 </ul>
@@ -176,6 +203,7 @@ ORDER BY id_producto;</div>
 
 <!-- =========================== 3.c =========================== -->
 <h2>Consigna 3.c · Code review con IA (OpenCode, agente Plan) <small>docs/3c_code_review_ia.md · rama review-final</small></h2>
+<p>La lista de los 56 scripts de la cursada (U1 a U8, en los dos repositorios), con qué hace cada uno, dónde se corre y qué hallazgo le corresponde, está en <code>docs/inventario_scripts_u1_u8.md</code>.</p>
 <table>
   <thead><tr><th class="c" style="width:4%">#</th><th style="width:15%">Unidad · archivo</th><th style="width:38%">Hallazgo</th><th class="c" style="width:12%">Decisión</th><th>Motivo</th></tr></thead>
   <tbody>

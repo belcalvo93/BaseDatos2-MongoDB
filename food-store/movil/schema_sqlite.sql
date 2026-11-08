@@ -1,6 +1,6 @@
 -- ============================================================================
 -- TP8 · Food Store · Base de la tablet (SQLite)
--- Esquema de la base offline: 5 tablas STRICT + 1 índice único parcial + 1 vista.
+-- Esquema de la base offline: 6 tablas STRICT + 1 índice único parcial + 1 vista.
 -- Se corre con:  sqlite3 movil/foodstore_movil.db ".read movil/schema_sqlite.sql"
 -- Se puede correr dos veces seguidas: al principio se borra lo anterior.
 -- No crea datos de prueba: solo estructura.
@@ -17,6 +17,7 @@ PRAGMA foreign_keys = ON;
 -- una tabla hija que tiene filas.
 -- ----------------------------------------------------------------------------
 DROP VIEW IF EXISTS v_catalogo_disponible;   -- depende de producto_cache
+DROP TABLE IF EXISTS evaluacion_sync;        -- hija de cola_sync (registro del semáforo)
 DROP TABLE IF EXISTS cola_sync;              -- hija de pedido_borrador
 DROP TABLE IF EXISTS item_borrador;          -- hija de pedido_borrador y de producto_cache
 DROP TABLE IF EXISTS pedido_borrador;        -- padre de item_borrador y cola_sync
@@ -113,6 +114,25 @@ CREATE TABLE cola_sync (
                    CHECK (estado IN ('PENDIENTE','CONFLICTO','RECHAZADO','SIMULADO_APROBADO')),
     motivo         TEXT,                                                  -- explicación legible del resultado
     creada_en      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+) STRICT;
+
+-- ----------------------------------------------------------------------------
+-- evaluacion_sync: registro (historia) de cada evaluación del semáforo.
+-- cola_sync guarda solo el ÚLTIMO estado de cada solicitud; acá queda una fila
+-- por cada vez que el semáforo evaluó una solicitud: contra qué instantánea
+-- (capturado_en), qué resultado dio y cuándo. Solo se insertan filas cuando una
+-- solicitud PENDIENTE se evalúa, así que repetir el semáforo o reenviar el mismo
+-- UUID (C6) no agrega filas: la solicitud ya no está pendiente.
+-- No hay 'PENDIENTE' en el CHECK: una evaluación siempre termina en una luz.
+-- ----------------------------------------------------------------------------
+CREATE TABLE evaluacion_sync (
+    id_evaluacion  INTEGER PRIMARY KEY,                                   -- autonumérico
+    solicitud_uuid TEXT NOT NULL REFERENCES cola_sync(solicitud_uuid),
+    capturado_en   TEXT NOT NULL,                                         -- fecha de la instantánea usada
+    estado         TEXT NOT NULL
+                   CHECK (estado IN ('CONFLICTO','RECHAZADO','SIMULADO_APROBADO')),
+    motivo         TEXT,
+    evaluado_en    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 ) STRICT;
 
 -- ----------------------------------------------------------------------------

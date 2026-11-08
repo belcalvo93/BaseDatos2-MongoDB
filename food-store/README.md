@@ -28,13 +28,13 @@ Instalar `sqlite3` en Windows: `winget install SQLite.SQLite` (después abrir un
 
 ### 1. Copia de la base del servidor (`bd2_tp8`)
 
-Los casos C2 y C4 cambian datos del servidor, así que se trabaja sobre una copia. **`bd2_tp3` no se toca.** No tiene que haber nadie conectado a `bd2_tp3` (cerrar pgAdmin o DBeaver).
+Los casos C2, C3 y C4 cambian datos del servidor, así que se trabaja sobre una copia. **`bd2_tp3` no se toca.** No tiene que haber nadie conectado a `bd2_tp3` (cerrar pgAdmin o DBeaver).
 
 ```bash
 createdb -U postgres -T bd2_tp3 bd2_tp8
 ```
 
-Si ya existía y se quiere empezar de cero: `dropdb -U postgres bd2_tp8` y repetir.
+Si ya existía y se quiere empezar de cero: `dropdb -U postgres bd2_tp8` y repetir. **Hay que hacerlo antes de regenerar las evidencias**: si `bd2_tp8` quedó con la preparación de una corrida anterior (precio 1600, stock 1, `activo = false`), la instantánea inicial del paso 4 saldría con esos valores.
 
 ### 2. Vista de la instantánea en PostgreSQL
 
@@ -50,7 +50,7 @@ Crea `v_snapshot_movil` y muestra los productos fijos y el total de filas (50011
 sqlite3 movil/foodstore_movil.db ".read movil/schema_sqlite.sql"
 ```
 
-Crea las 5 tablas `STRICT`, el índice parcial `ux_cola_una_pendiente` y la vista `v_catalogo_disponible`. Borra lo anterior si ya existía.
+Crea las 6 tablas `STRICT` (incluida `evaluacion_sync`, el registro de evaluaciones del semáforo), el índice parcial `ux_cola_una_pendiente` y la vista `v_catalogo_disponible`. Borra lo anterior si ya existía.
 
 ### 4. Exportar la instantánea (en el servidor)
 
@@ -67,38 +67,51 @@ sqlite3 movil/foodstore_movil.db ".read movil/importar_catalogo.sql"
 ```
 
 Esperado: `filas_instantanea = filas_cache = 50011`, `lapidas = 10048`, `catalogo_disponible = 39963`, y la fecha de la copia (`capturado_en`).
-Los pasos 4 y 5 se repiten cada vez que cambia algo en el servidor (casos C2 y C4).
+Los pasos 4 y 5 se repiten cada vez que cambia algo en el servidor (casos C2, C3 y C4).
 
-### 6. Pruebas de la base de la tablet (transacciones, C1 y C7)
+### 6. Pruebas de la base de la tablet (transacciones, subtotal, C1 y C7)
 
 Van sobre una base **aparte** (`pruebas.db`), porque usan productos inventados:
 
 ```bash
 rm -f movil/pruebas.db
-sqlite3 movil/pruebas.db ".read movil/schema_sqlite.sql" ".read movil/pruebas_sqlite.sql"
+sqlite3 movil/pruebas.db ".read movil/schema_sqlite.sql" ".read movil/pruebas_sqlite.sql" > evidencias/salida_pruebas_sqlite.txt 2>&1
 ```
 
-Los únicos errores esperados son el `CHECK` y la `FOREIGN KEY` del C7. Ver `evidencias/salida_pruebas_sqlite.txt`.
+Esperado: 1/1/1 después del COMMIT; en la Prueba 1b, subtotal y total `300000` centavos = `3000.0` pesos; antes = después en el ROLLBACK y en el C7; el catálogo muestra solo el producto 900001. Los únicos errores esperados son el `CHECK` y la `FOREIGN KEY` del C7.
 
 ### 7. Casos C2 a C6 con el semáforo
 
 Cada caso sigue el mismo flujo:
 
 1. Crear el borrador en SQLite (transacción, UUIDs fijos).
-2. Si el caso lo pide, cambiar el dato en `bd2_tp8` (C2: subir el precio; C4: `activo = false`). Es preparación manual del caso, no parte de la simulación.
+2. Si el caso lo pide, cambiar el dato en `bd2_tp8` (C2: subir el precio; C3: bajar el stock del producto 2 de 3 a 1, como una venta de otra tablet; C4: `activo = false`). Es preparación manual del caso, no parte de la simulación.
 3. Exportar una instantánea nueva (paso 4) e importarla (paso 5).
 4. Correr el semáforo:
    ```bash
    sqlite3 movil/foodstore_movil.db ".read movil/semaforo.sql"
    ```
-5. Mirar `cola_sync` (el script la muestra al final) y explicar el resultado.
+5. Mirar `cola_sync` y `evaluacion_sync` (el script las muestra al final) y explicar el resultado.
 
 Para reproducir los casos C2 a C6 completos en forma automatizada (una vez creada `foodstore_movil.db` y cargada la instantánea inicial de los pasos 3 a 5):
 
 ```bash
-psql -U postgres -d bd2_tp8 -f postgresql/casos_servidor.sql
-sqlite3 movil/foodstore_movil.db ".read movil/casos_sqlite.sql"
+psql -U postgres -d bd2_tp8 -f postgresql/casos_servidor.sql > evidencias/salida_casos_servidor_postgresql.txt 2>&1
+sqlite3 movil/foodstore_movil.db ".read movil/casos_sqlite.sql" > evidencias/salida_casos_c2_c6_sqlite.txt 2>&1
+git restore movil/servidor_snapshot.csv   # el repo conserva la instantánea INICIAL (la del paso 4)
 ```
+
+Resultado esperado:
+
+| Caso | Resultado | Motivo / comprobación |
+|---|---|---|
+| C2 | `CONFLICTO` y, después de aceptar el precio, la solicitud nueva `SIMULADO_APROBADO` | `precio cambió: producto 3 (visto 140000, actual 160000 centavos)`; se muestran el subtotal visto (2800.0) y el actual (3200.0) |
+| C3 | `RECHAZADO` | `stock insuficiente: producto 2 (pide 2, hay 1)`: el borrador era válido con stock 3, pero otra tablet vendió |
+| C4 | `RECHAZADO` | `dado de baja: producto 11`; ya no aparece en `v_catalogo_disponible`, pero la fila sigue en `producto_cache` con `eliminado = 1` |
+| C5 | `SIMULADO_APROBADO` | todo coincide (es una simulación, no una venta) |
+| C6 | sin cambios | (a) repetir el semáforo deja 5 filas en `evaluacion_sync`; (b) el `INSERT` común da `UNIQUE constraint failed` (único error esperado); (c) el reenvío con `ON CONFLICT DO NOTHING` inserta 0 filas y devuelve el resultado guardado |
+
+`evaluacion_sync` termina con 5 filas: 4 de la primera corrida y la de la solicitud nueva del C2.
 
 El detalle de cada caso y el mapa de los 3 motores están en `docs/2c_casos_y_3a_mapa.md`, y las salidas en `evidencias/salida_casos_servidor_postgresql.txt` y `evidencias/salida_casos_c2_c6_sqlite.txt`.
 
@@ -110,9 +123,9 @@ La consulta **inicial** está en el paso 1 de `casos_servidor.sql`. La **final**
 psql -U postgres -d bd2_tp8 -f postgresql/consulta_final.sql > evidencias/salida_consulta_final_postgresql.txt 2>&1
 ```
 
-Esperado: `total_pedidos_despues = 200005` y stock `3 · 40 · 30 · 0 · 10` en los productos 2, 3, 9, 10 y 11.
+Esperado: `total_pedidos_despues = 200005` y stock `1 · 40 · 30 · 0 · 10` en los productos 2, 3, 9, 10 y 11, igual que el paso 4 de `casos_servidor.sql` (servidor ya preparado, antes de simular).
 
-La cantidad de pedidos y el stock no cambian por la simulación. Lo único que cambia en `bd2_tp8` es lo que se preparó a mano para C2 (precio del producto 3) y C4 (`activo` del producto 11).
+La cantidad de pedidos y el stock no cambian por la simulación. Respecto del estado inicial (stock `3 · 40 · 30 · 0 · 10`), lo único que cambia en `bd2_tp8` es lo que se preparó a mano: C2 (precio del producto 3), C3 (stock del producto 2, de 3 a 1) y C4 (`activo` del producto 11).
 
 ---
 
@@ -123,7 +136,7 @@ Datos de `bd2_tp8` recién copiada (precio en pesos y en centavos, como viaja a 
 | Uso | id_producto | Nombre | Precio | precio_centavos | Stock | Qué se hace |
 |---|---|---|---|---|---|---|
 | C2 · el precio sube | 3 | Agua mineral 2L | $1400,00 | 140000 | 40 | Se sube a $1600,00 en `bd2_tp8` → `CONFLICTO` |
-| C3 · poco stock | 2 | Medialunas x6 | $3200,00 | 320000 | 3 | El borrador pide 5 → `RECHAZADO` |
+| C3 · el stock baja | 2 | Medialunas x6 | $3200,00 | 320000 | 3 | El borrador pide 2; otra tablet vende y en `bd2_tp8` queda stock 1 → `RECHAZADO` |
 | C4 · se da de baja | 11 | Cerveza 1L | $4500,00 | 450000 | 10 | `activo = false` en `bd2_tp8` → `RECHAZADO` |
 | C5 · sin cambios | 9 | Fideos secos 500g | $1950,00 | 195000 | 30 | Nada → `SIMULADO_APROBADO` |
 | C1/C7 · pruebas | 10 | Helado 1L | $9500,00 | 950000 | 0 | Ya está dado de baja (producto y categoría): no aparece en `v_catalogo_disponible` |
@@ -142,7 +155,7 @@ Datos de `bd2_tp8` recién copiada (precio en pesos y en centavos, como viaja a 
 
 ## Cómo se verificó el semáforo
 
-En una base de prueba aparte (no se sube al repo), con la instantánea real cargada y los cambios del servidor simulados **sobre `snapshot_servidor`** (sin tocar PostgreSQL):
+Verificación del 01/11 (versión anterior del C3, que pedía 5 con stock 3). En una base de prueba aparte (no se sube al repo), con la instantánea real cargada y los cambios del servidor simulados **sobre `snapshot_servidor`** (sin tocar PostgreSQL):
 
 | Escenario | Resultado | Motivo |
 |---|---|---|
@@ -173,7 +186,7 @@ Al final: `PRAGMA foreign_key_check` sin filas y `PRAGMA integrity_check` = `ok`
 | `movil/importar_catalogo.sql` | 2.a importación + upsert al caché | Elías |
 | `movil/semaforo.sql` | 2.b semáforo | Elías |
 | `movil/schema_sqlite.sql` | 1.b tablas de la tablet | Belén |
-| `movil/pruebas_sqlite.sql` | 1.c transacciones, C1, C7 | Belén |
+| `movil/pruebas_sqlite.sql` | 1.c transacciones, subtotal, C1, C7 | Belén |
 | `docs/1a_datos_que_viajan.md` | 1.a | Belén |
 | `docs/kiro/` | 4.a spec (requirements, design, tasks) | Belén |
 | `docs/bitacora_ia.md` | 4.b bitácora de IA | todos |
@@ -181,4 +194,8 @@ Al final: `PRAGMA foreign_key_check` sin filas y `PRAGMA integrity_check` = `ok`
 | `postgresql/consulta_final.sql` | 2.c consulta final, después de la simulación | Belén |
 | `movil/casos_sqlite.sql` | 2.c ejecución de los casos C2–C6 en SQLite | Hernán |
 | `docs/2c_casos_y_3a_mapa.md` | 2.c explicación de casos C2–C6 y 3.a mapa de 3 motores | Hernán |
+| `docs/3b_plan_mantenimiento.md` | 3.b agregado al plan de mantenimiento de la U6 | Bruno |
+| `docs/3c_code_review_ia.md` | 3.c code review con IA (OpenCode, agente Plan) | Bruno |
+| `docs/inventario_scripts_u1_u8.md` | 3.c inventario de todos los scripts de la cursada (U1–U8) | Belén |
+| `docs/DUIA.md` | 4.b declaración de uso de IA | Bruno |
 | `docs/informe.pdf` | informe (máx. 6 páginas) | Hernán |
