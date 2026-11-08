@@ -1,6 +1,7 @@
 -- ============================================================================
 -- TP8 · Food Store · Pruebas de la base de la tablet (SQLite)
--- Cubre la Tarea 4: transacciones (COMMIT y ROLLBACK), C1 y C7 (REQ-04).
+-- Cubre la Tarea 4: transacciones (COMMIT y ROLLBACK), consulta con subtotal,
+-- C1 (REQ-05) y C7 (REQ-04).
 --
 -- Se corre SIEMPRE desde food-store/ y sobre una base limpia:
 --   rm -f movil/pruebas.db          (o: del movil\pruebas.db en Windows)
@@ -81,6 +82,29 @@ UNION ALL
 SELECT 'item_borrador',   COUNT(*) FROM item_borrador
 UNION ALL
 SELECT 'cola_sync',       COUNT(*) FROM cola_sync;
+
+-- ----------------------------------------------------------------------------
+-- PRUEBA 1b: consulta del borrador con subtotal por ítem y total
+-- El subtotal NO se guarda: se calcula como cantidad * precio_centavos_visto.
+-- Se calcula en centavos (INTEGER, sin error de redondeo) y se muestra en pesos
+-- (/ 100.0) solo para leerlo.
+-- Esperado: 2 x 150000 = 300000 centavos = 3000.0 pesos (subtotal y total).
+-- ----------------------------------------------------------------------------
+SELECT 'PRUEBA 1b: borrador con subtotal y total (esperado 300000 centavos = 3000.0 pesos)' AS prueba;
+
+SELECT i.id_local, i.producto_id, p.nombre, i.cantidad, i.precio_centavos_visto,
+       i.cantidad * i.precio_centavos_visto         AS subtotal_centavos,
+       i.cantidad * i.precio_centavos_visto / 100.0 AS subtotal_pesos
+FROM item_borrador i
+JOIN producto_cache p USING (producto_id)
+ORDER BY i.id_local, i.producto_id;
+
+SELECT id_local,
+       count(*)                                      AS items,
+       sum(cantidad * precio_centavos_visto)         AS total_centavos,
+       sum(cantidad * precio_centavos_visto) / 100.0 AS total_pesos
+FROM item_borrador
+GROUP BY id_local;
 
 -- ----------------------------------------------------------------------------
 -- PRUEBA 2: segundo borrador completo con BEGIN ... ROLLBACK

@@ -2,6 +2,8 @@
 
 Se revisaron con **OpenCode (agente Plan, modo de solo lectura)** los scripts de las unidades de la cursada (`base-datos-2` para U1–U6 y `BaseDatos2-MongoDB` para U7–U8) sobre la rama de revisión `review-final`. Cada hallazgo se contrastó contra la especificación y se comprobó en el motor correspondiente (`psql`, `mongosh` o `sqlite3`) antes de decidir si se corregía, se aceptaba o se descartaba.
 
+La lista completa de los scripts de la cursada (U1 a U8, en los dos repositorios), con qué hace cada uno, dónde se corre y qué hallazgo de esta tabla le corresponde, está en [`inventario_scripts_u1_u8.md`](inventario_scripts_u1_u8.md).
+
 ---
 
 ## 1. Tabla de hallazgos de la cursada

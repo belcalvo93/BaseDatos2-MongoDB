@@ -21,6 +21,7 @@ flowchart LR
     Cola[cola_sync<br/>PENDIENTE]
     Semaforo{Semáforo<br/>rojo/amarillo/verde}
     Result[RECHAZADO /<br/>CONFLICTO /<br/>SIMULADO_APROBADO]
+    Eval[evaluacion_sync<br/>registro de evaluaciones]
     
     PG --> Vista
     Vista -->|psql \copy| CSV
@@ -31,6 +32,7 @@ flowchart LR
     Cola --> Semaforo
     Semaforo -->|LEFT JOIN| Snap
     Semaforo --> Result
+    Semaforo --> Eval
     
     style PG fill:#e1f5ff
     style Cache fill:#fff4e1
@@ -39,16 +41,16 @@ flowchart LR
 ```
 
 **Flujo de datos:**
-1. **Exportación:** PostgreSQL genera la vista `v_snapshot_movil` con precios convertidos a centavos y el campo `disponible` calculado como `activo AND stock > 0`.
+1. **Exportación:** PostgreSQL genera la vista `v_snapshot_movil` con precios convertidos a centavos, `disponible = p.activo AND c.activo AND p.stock > 0` y `eliminado = NOT p.activo OR NOT c.activo` (se tiene en cuenta la baja de la categoría).
 2. **Importación:** El CSV se importa en `snapshot_servidor` y se carga en `producto_cache` mediante upsert (actualiza sin borrar filas).
 3. **Offline:** La tablet consulta `v_catalogo_disponible` y crea borradores locales que se encolan en `cola_sync` con estado `PENDIENTE`.
-4. **Simulación:** El semáforo compara cada solicitud pendiente contra la instantánea y actualiza el estado sin modificar PostgreSQL.
+4. **Simulación:** El semáforo compara cada solicitud pendiente contra la instantánea, registra la evaluación en `evaluacion_sync` y actualiza el estado en `cola_sync`, sin modificar PostgreSQL.
 
 ---
 
 ## 2. Modelo de Datos SQLite
 
-### 2.1 Tablas STRICT
+### 2.1 Tablas STRICT (6 tablas)
 
 Todas las tablas usan `STRICT` y requieren `PRAGMA foreign_keys = ON;` en cada conexión.
 
@@ -102,7 +104,7 @@ PRIMARY KEY (id_local, producto_id)
 ```
 
 #### `cola_sync`
-Cola de sincronización con control de estados.
+Cola de sincronización: guarda el **último estado** de cada solicitud.
 
 ```
 solicitud_uuid TEXT PRIMARY KEY
@@ -112,6 +114,20 @@ estado         TEXT NOT NULL DEFAULT 'PENDIENTE'
 motivo         TEXT
 creada_en      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 ```
+
+#### `evaluacion_sync`
+Registro de evaluaciones: una fila por cada vez que el semáforo evaluó una solicitud.
+
+```
+id_evaluacion  INTEGER PRIMARY KEY
+solicitud_uuid TEXT NOT NULL REFERENCES cola_sync(solicitud_uuid)
+capturado_en   TEXT NOT NULL      -- fecha de la instantánea usada
+estado         TEXT NOT NULL CHECK (estado IN ('CONFLICTO','RECHAZADO','SIMULADO_APROBADO'))
+motivo         TEXT
+evaluado_en    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+```
+
+**Por qué dos tablas:** `cola_sync` guarda solo el último estado de cada solicitud; `evaluacion_sync` guarda la historia (cuándo y contra qué instantánea se evaluó y qué dio). En C2 quedan dos evaluaciones: la solicitud original en `CONFLICTO` y la solicitud nueva (otro UUID, después de que el cliente **acepta** el precio) en `SIMULADO_APROBADO`. El `CHECK` no incluye `PENDIENTE` porque una evaluación siempre termina en una luz.
 
 ### 2.2 Índice Parcial
 
@@ -158,26 +174,23 @@ El semáforo evalúa cada solicitud `PENDIENTE` comparando los ítems del borrad
 ### 3.2 Implementación
 
 ```text
--- Pseudocódigo del semáforo
-FOR cada solicitud WHERE estado = 'PENDIENTE':
-    JOIN item_borrador LEFT JOIN snapshot_servidor
-    
-    IF EXISTS (producto_id IS NULL OR disponible = 'f' OR eliminado = 't' OR cantidad > stock):
-        estado = 'RECHAZADO'
-        motivo = 'producto {id}: {causa específica}'
-    
-    ELSE IF EXISTS (precio_centavos_visto <> precio_centavos):
-        estado = 'CONFLICTO'
-        motivo = 'precio cambió: producto {id}'
-    
-    ELSE:
-        estado = 'SIMULADO_APROBADO'
-        motivo = NULL
-    
-    UPDATE cola_sync SET estado, motivo
+-- Pseudocódigo del semáforo (todo en una transacción)
+1. Calcular el resultado UNA vez en una tabla temporal:
+   FOR cada solicitud WHERE estado = 'PENDIENTE' (y hay instantánea cargada):
+       item_borrador LEFT JOIN snapshot_servidor
+       IF algún ítem: producto_id IS NULL OR disponible = 'f' OR eliminado = 't' OR cantidad > stock
+           estado = 'RECHAZADO',  motivo = causa + producto
+       ELSE IF algún ítem: precio_centavos_visto <> precio_centavos
+           estado = 'CONFLICTO',  motivo = 'precio cambió: producto {id} (visto, actual)'
+       ELSE
+           estado = 'SIMULADO_APROBADO', motivo = 'todo coincide (simulación, no es una venta)'
+2. INSERT INTO evaluacion_sync (solicitud_uuid, capturado_en, estado, motivo) desde la tabla temporal
+3. UPDATE cola_sync SET estado, motivo desde la tabla temporal (solo las que siguen PENDIENTE)
 ```
 
-**Idempotencia:** Solo se procesan solicitudes `PENDIENTE`. Las ya evaluadas conservan su estado (REQ-03).
+Como el registro y la cola salen de la misma tabla temporal y en la misma transacción, siempre guardan lo mismo: o se guardan los dos o ninguno.
+
+**Idempotencia:** Solo se procesan solicitudes `PENDIENTE`. Las ya evaluadas conservan su estado y correr el semáforo otra vez no agrega filas en `evaluacion_sync` (REQ-03).
 
 **Trampas:**
 - Con `LEFT JOIN`, si el producto no existe en la instantánea, `snapshot_servidor.*` es `NULL`. Hay que verificar `producto_id IS NULL` explícitamente (no confiar en `cantidad > stock` porque `NULL > n` da `NULL`).
@@ -189,13 +202,16 @@ FOR cada solicitud WHERE estado = 'PENDIENTE':
 
 ### 4.1 Cálculo de `disponible`
 
-**Decisión:** `disponible = (activo AND stock > 0)`
+**Decisión:** `disponible = (p.activo AND c.activo AND p.stock > 0)`
 
-La vista `v_snapshot_movil` en PostgreSQL calcula el campo `disponible` combinando la baja lógica y el stock:
+La vista `v_snapshot_movil` en PostgreSQL calcula el campo `disponible` combinando la baja lógica del producto, la de su categoría y el stock:
 
 ```sql
-(p.activo AND p.stock > 0) AS disponible
+(p.activo AND c.activo AND p.stock > 0) AS disponible,
+(NOT p.activo OR NOT c.activo)          AS eliminado
 ```
+
+(La primera versión solo miraba `p.activo`; con `\d categoria` se vio que `categoria` también tiene baja lógica. Ver bitácora, entrada 6.)
 
 **Alternativa descartada:** Enviar `activo` y `stock` por separado y calcular en SQLite.
 
@@ -251,6 +267,39 @@ En SQLite, una restricción `CHECK` o `FOREIGN KEY` que falla deshace **solo la 
 
 ---
 
+### 4.6 Consulta con Subtotal
+
+**Decisión:** El subtotal por ítem se calcula al leer: `cantidad * precio_centavos_visto` en centavos (`INTEGER`) y se muestra en pesos (`/ 100.0`) solo para leerlo. El total del borrador es la suma de los subtotales.
+
+```sql
+cantidad * precio_centavos_visto         AS subtotal_centavos,
+cantidad * precio_centavos_visto / 100.0 AS subtotal_pesos
+```
+
+Ejemplo (Prueba 1b): 2 × 150000 = 300000 centavos = 3000.0 pesos. En C2 se muestran el subtotal visto y el subtotal con el precio actual antes de que el cliente acepte.
+
+**Alternativa descartada:** Guardar el subtotal en `item_borrador`.
+
+**Motivo:** Sería un dato redundante que habría que mantener sincronizado; calculado al leer, siempre coincide con `cantidad` y `precio_centavos_visto`.
+
+---
+
+### 4.7 Reenvío Idempotente (C6)
+
+**Decisión:** `INSERT … ON CONFLICT (solicitud_uuid) DO NOTHING` y después `SELECT estado, motivo FROM cola_sync WHERE solicitud_uuid = …`.
+
+```sql
+INSERT INTO cola_sync (solicitud_uuid, id_local) VALUES (…, …)
+ON CONFLICT (solicitud_uuid) DO NOTHING;      -- ya existe: inserta 0 filas
+SELECT solicitud_uuid, estado, motivo FROM cola_sync WHERE solicitud_uuid = …;
+```
+
+**Alternativa descartada:** Solo el `INSERT` común, que falla con error de clave primaria. Prueba que no se duplica, pero no devuelve el resultado anterior (sigue en el script como parte b del C6).
+
+**Motivo:** El apunte (parada 8) pide que un reenvío devuelva el resultado anterior sin evaluarlo de nuevo. El reenvío no agrega filas en `evaluacion_sync` porque la solicitud ya no está `PENDIENTE`.
+
+---
+
 ## 5. Fuera de Alcance del Diseño
 
 - **Venta real en PostgreSQL:** El semáforo solo simula. La inserción en `pedido` y `detalle_pedido` la hace un procedimiento `sp_crear_pedido` que vuelve a validar stock con `SELECT ... FOR UPDATE` (no implementado en este TP).
@@ -267,13 +316,15 @@ Cada requisito se verifica con casos de prueba:
 | Requisito | Caso | Verificación |
 |---|:---:|---|
 | REQ-01 | C2 | Cambiar precio en `bd2_tp8`, exportar, importar, correr semáforo → `estado = 'CONFLICTO'` |
-| REQ-02 | C3, C4 | Borrador con cantidad > stock o producto dado de baja → `estado = 'RECHAZADO'` |
-| REQ-03 | C6 | Reintentar con mismo UUID → error de clave primaria; repetir semáforo → mismo resultado |
+| REQ-02 | C3, C4 | Stock del producto 2 bajado a 1 en `bd2_tp8` (pide 2) o producto dado de baja → `estado = 'RECHAZADO'` |
+| REQ-03 | C6 | Repetir semáforo → mismas filas en `evaluacion_sync`; `INSERT` común con mismo UUID → error de PK; `ON CONFLICT DO NOTHING` → 0 filas y se devuelve el resultado guardado |
 | REQ-04 | C7 | `INSERT` con cantidad 0 o producto inexistente → error; `SELECT COUNT(*)` sin cambios |
+| REQ-05 | C1 | `v_catalogo_disponible` muestra solo productos disponibles y no dados de baja, sin servidor |
+| REQ-06 | C5 | Borrador sin cambios → `estado = 'SIMULADO_APROBADO'` y una fila en `evaluacion_sync` |
 
-**Consulta final (consigna 2.c):** Correr en `bd2_tp8` antes y después de la simulación:
+**Consulta final (consigna 2.c):** En `bd2_tp8`, con el servidor ya preparado (paso 4 de `casos_servidor.sql`) y después de la simulación (`consulta_final.sql`):
 ```sql
 SELECT COUNT(*) FROM pedido;
-SELECT id_producto, stock FROM producto WHERE id_producto IN (...);
+SELECT id_producto, stock FROM producto WHERE id_producto IN (2, 3, 9, 10, 11);
 ```
-Resultado esperado: **sin cambios** (la simulación no modifica el servidor).
+Resultado esperado en ambos momentos: 200005 pedidos y stock 1, 40, 30, 0, 10. La simulación no modifica el servidor. El stock del producto 2 pasó de 3 a 1 por la preparación manual del C3 (antes de simular), no por la simulación.

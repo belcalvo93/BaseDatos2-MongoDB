@@ -1,7 +1,8 @@
 -- ============================================================================
 -- TP8 · Food Store · Semáforo de sincronización (consigna 2.b)
 -- Compara cada solicitud PENDIENTE de cola_sync contra la última instantánea
--- del servidor (snapshot_servidor) y guarda el resultado en cola_sync:
+-- del servidor (snapshot_servidor), guarda el resultado en cola_sync y deja
+-- una fila por evaluación en evaluacion_sync (registro de evaluaciones):
 --
 --   ROJO     RECHAZADO          producto inexistente, dado de baja, no
 --                               disponible o cantidad mayor que el stock
@@ -20,7 +21,7 @@
 --
 -- Idempotencia: solo se evalúan las solicitudes en estado PENDIENTE. Una vez
 -- evaluada, la solicitud conserva su resultado aunque el script se corra de
--- nuevo (caso C6).
+-- nuevo (caso C6), y no se agrega otra fila en evaluacion_sync.
 -- ============================================================================
 
 .bail on
@@ -29,6 +30,10 @@ PRAGMA foreign_keys = ON;   -- antes del BEGIN, en cada conexión
 
 BEGIN;
 
+-- 1) Se calcula el resultado UNA sola vez en una tabla temporal, para que el
+--    registro y la cola guarden exactamente lo mismo.
+DROP TABLE IF EXISTS temp.resultado_semaforo;
+CREATE TEMP TABLE resultado_semaforo AS
 WITH
 -- Un renglón por cada ítem de cada solicitud pendiente.
 -- LEFT JOIN a item_borrador: un borrador sin ítems también se evalúa (rojo).
@@ -79,13 +84,30 @@ evaluacion AS (
     FROM evaluacion_item
     GROUP BY solicitud_uuid
 )
+SELECT solicitud_uuid, estado, motivo
+FROM evaluacion
+WHERE EXISTS (SELECT 1 FROM snapshot_servidor);      -- sin instantánea cargada no se evalúa nada
+
+-- 2) Registro de evaluaciones: una fila por solicitud evaluada en esta corrida,
+--    con la fecha de la instantánea contra la que se comparó.
+INSERT INTO evaluacion_sync (solicitud_uuid, capturado_en, estado, motivo)
+SELECT r.solicitud_uuid,
+       (SELECT max(capturado_en) FROM snapshot_servidor),
+       r.estado,
+       r.motivo
+FROM resultado_semaforo r
+ORDER BY r.solicitud_uuid;
+
+-- 3) Último estado en la cola (misma transacción que el registro: o se guardan
+--    los dos o ninguno).
 UPDATE cola_sync
-SET    estado = evaluacion.estado,
-       motivo = evaluacion.motivo
-FROM   evaluacion
-WHERE  cola_sync.solicitud_uuid = evaluacion.solicitud_uuid
-  AND  cola_sync.estado = 'PENDIENTE'                 -- nunca se reevalúa lo ya resuelto
-  AND  EXISTS (SELECT 1 FROM snapshot_servidor);      -- sin instantánea cargada no se evalúa nada
+SET    estado = r.estado,
+       motivo = r.motivo
+FROM   resultado_semaforo r
+WHERE  cola_sync.solicitud_uuid = r.solicitud_uuid
+  AND  cola_sync.estado = 'PENDIENTE';                -- nunca se reevalúa lo ya resuelto
+
+DROP TABLE temp.resultado_semaforo;
 
 COMMIT;
 
@@ -98,3 +120,6 @@ SELECT (SELECT count(*) FROM snapshot_servidor) AS filas_instantanea,
 SELECT solicitud_uuid, id_local, estado, motivo
 FROM cola_sync
 ORDER BY creada_en, solicitud_uuid;
+SELECT id_evaluacion, solicitud_uuid, capturado_en, estado, evaluado_en
+FROM evaluacion_sync
+ORDER BY id_evaluacion;

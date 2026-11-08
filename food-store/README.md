@@ -181,4 +181,8 @@ Al final: `PRAGMA foreign_key_check` sin filas y `PRAGMA integrity_check` = `ok`
 | `postgresql/consulta_final.sql` | 2.c consulta final, después de la simulación | Belén |
 | `movil/casos_sqlite.sql` | 2.c ejecución de los casos C2–C6 en SQLite | Hernán |
 | `docs/2c_casos_y_3a_mapa.md` | 2.c explicación de casos C2–C6 y 3.a mapa de 3 motores | Hernán |
+| `docs/3b_plan_mantenimiento.md` | 3.b agregado al plan de mantenimiento de la U6 | Bruno |
+| `docs/3c_code_review_ia.md` | 3.c code review con IA (OpenCode, agente Plan) | Bruno |
+| `docs/inventario_scripts_u1_u8.md` | 3.c inventario de todos los scripts de la cursada (U1–U8) | Belén |
+| `docs/DUIA.md` | 4.b declaración de uso de IA | Bruno |
 | `docs/informe.pdf` | informe (máx. 6 páginas) | Hernán |

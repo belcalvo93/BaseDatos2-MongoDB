@@ -159,3 +159,48 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 **Qué se descartó:** agregar un estado `ANULADO` a `cola_sync` para cuando el cliente no acepta el precio nuevo (Neira dijo que en ese caso se anula el pedido). La consigna fija los 4 estados (`PENDIENTE`, `CONFLICTO`, `RECHAZADO`, `SIMULADO_APROBADO`) y el plan de mantenimiento (3.b) ya indica que, si el cliente no acepta, se descarta el borrador.
 
 **Cómo se comprobó:** se reprodujo en `sqlite3` el flujo de `schema_sqlite.sql`, `importar_catalogo.sql` (50.011 filas, 10.048 lápidas) y `casos_sqlite.sql` con la instantánea modificada: C2 `CONFLICTO` y luego `SIMULADO_APROBADO`, C3 y C4 `RECHAZADO`, C5 `SIMULADO_APROBADO`, C6 error de PK sin reevaluar, `integrity_check = ok`. La consulta final se corrió en `bd2_tp8` después de la simulación (ver `evidencias/salida_consulta_final_postgresql.txt`).
+
+---
+
+## Entrada 11 · 07–08/11/2026 · Belén Calvo · Claude (chat)
+
+**Qué se pidió:** adaptar los scripts a la corrección del TP8 pedida por el profesor Neira.
+
+**Qué se aceptó:**
+- La tabla `evaluacion_sync` como tabla `STRICT`.
+- El semáforo calcula el resultado en una tabla temporal y, en la misma transacción, inserta el registro y actualiza `cola_sync`.
+- C3 con stock que baja en el servidor (3 → 1, venta de otra tablet).
+- C6 en tres partes: repetir el semáforo, `INSERT` con error de PK y reenvío con `ON CONFLICT DO NOTHING` que devuelve el resultado guardado.
+- La consulta con subtotal en `pruebas_sqlite.sql` y en los casos.
+
+**Qué se corrigió:** nada en los scripts SQLite. Al mover los archivos, el navegador guardó `schema_sqlite.sql` como `schema_sqlite (1).sql` y se movió una versión vieja; se detectó porque `evaluacion_sync` no aparecía en `.tables` y `grep -c evaluacion_sync` dio 0. La parte de PostgreSQL (`casos_servidor.sql`, `consulta_final.sql`) Claude no la pudo ejecutar: se comprueba en la corrida completa en `bd2_tp8`.
+
+**Cómo se comprobó:** `pruebas_sqlite.sql` se corrió en mi PC: subtotal de 300000 centavos = 3000.0 pesos; solo los 2 errores esperados CHECK y FK. `schema_sqlite.sql` crea las 6 tablas.
+
+---
+
+## Entrada 12 · 07–08/11/2026 · Belén Calvo · Kiro
+
+**Qué se pidió:** actualizar `requirements.md`, `design.md` y `tasks.md` (6 requisitos EARS: REQ-05 para C1 y REQ-06 para C5; REQ-03 devuelve el resultado guardado).
+
+**Qué se aceptó:**
+- Los 6 requisitos con su caso.
+- La tabla de casos sin huecos.
+- La matriz REQ-01 a REQ-06.
+
+**Qué se corrigió:**
+- Insertó caracteres de control en lugar de "`v" y "`a" en la tabla de casos (`v_catalogo_disponible`, `activo = false`).
+- Dejó la descripción vieja del C3.
+- Reescribió `design.md` y `tasks.md` más allá de lo pedido.
+- Rompió todas las comillas invertidas en `design.md` y `tasks.md`: `\r`, `\b`, `\f`, `\a`, `\v` y `\t` borraron letras, y los bloques de código mermaid y SQL quedaron como `\\\`.
+- En C6 dijo que la aplicación captura el error de PK y hace un `SELECT`, en lugar de usar `INSERT ... ON CONFLICT DO NOTHING` y después el `SELECT`.
+- En la consulta final de `design.md` dijo “sin cambios”, aunque el stock del producto 2 cambia de 3 a 1 por la preparación del C3.
+- Indicó que la prueba 1b cubre REQ-05, aunque REQ-05 corresponde al catálogo sin conexión (C1), no al subtotal.
+- En la matriz omitió el ✓ de REQ-06 en la tarea 6, aunque incluye el C5.
+- En `design.md` §2.1 invirtió la situación: dice que el cliente rechaza un conflicto y reenvía, cuando acepta y reenvía.
+- Borró las verificaciones de las tareas 1, 3 y 4 y varias aclaraciones que estaban desde el 01/11.
+- Dejó vieja la descripción del C3 en `requirements.md` y la trazabilidad dice “quién”, aunque `evaluacion_sync` no guarda quién evaluó.
+
+**Qué se descartó:** los tres archivos tal como los escribió Kiro (caracteres de control en lugar de comillas invertidas, bloques de código rotos y errores de contenido: C6 por captura de error en vez de `ON CONFLICT`, consulta final “sin cambios”, Prueba 1b asignada a REQ-05). Se rearmaron desde la versión de `main`, aplicando solo los cambios pedidos y tomando de Kiro la redacción de REQ-05 y REQ-06, la nota del C3 y la explicación de las dos tablas.
+
+**Cómo se comprobó:** se comprobó que no quedaran caracteres de control y que el `grep -c SHALL` diera 8.

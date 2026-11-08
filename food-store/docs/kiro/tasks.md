@@ -26,8 +26,8 @@ Todas las rutas son relativas a la carpeta `food-store/`.
 - Crea la vista `v_snapshot_movil` en `bd2_tp8` (copia de `bd2_tp3`; nunca sobre `bd2_tp3`).
 - `producto_id` = `id_producto`.
 - `precio_centavos` = `round(precio * 100)::INTEGER`.
-- `disponible` = `activo AND stock > 0`.
-- `eliminado` = `NOT activo` (lápida: los productos dados de baja **también** viajan).
+- `disponible` = `p.activo AND c.activo AND stock > 0`.
+- `eliminado` = `NOT p.activo OR NOT c.activo` (lápida: los productos dados de baja, o de una categoría dada de baja, **también** viajan).
 - `capturado_en` = `now()`.
 - Elegir y anotar los **productos fijos** para los casos (tabla de la sección 7 del contexto) y pasarlos al grupo.
 
@@ -42,19 +42,20 @@ SELECT count(*) FROM v_snapshot_movil WHERE eliminado;
 
 ---
 
-### [ ] Tarea 2: Esquema SQLite con 5 tablas STRICT
+### [ ] Tarea 2: Esquema SQLite con 6 tablas STRICT
 
 **Archivo:** `movil/schema_sqlite.sql`  
 **Responsable:** Belén (Bloque A)  
 **Requisito relacionado:** REQ-04 (restricciones CHECK y FK) y base de todos los demás  
 **Descripción:**
 - Comienza con `PRAGMA foreign_keys = ON;`.
-- Crea **5** tablas STRICT con los nombres exactos de la sección 5 del contexto:
+- Crea **6** tablas STRICT con los nombres exactos de la sección 5 del contexto (más `evaluacion_sync`):
   - `snapshot_servidor`: copia del CSV, booleanos como TEXT `'t'`/`'f'`.
   - `producto_cache`: copia del catálogo en la tablet, **incluidas las lápidas**; booleanos como INTEGER 0/1.
   - `pedido_borrador`: cabecera del borrador.
   - `item_borrador`: líneas del borrador, PK `(id_local, producto_id)`.
-  - `cola_sync`: cola de envíos con estado y motivo.
+  - `cola_sync`: cola de envíos con el último estado y su motivo.
+  - `evaluacion_sync`: registro de evaluaciones del semáforo (FK a `cola_sync`; `CHECK` de estado sin `PENDIENTE`). Ver design.md 2.1.
 - Crea el índice único parcial `ux_cola_una_pendiente ON cola_sync (id_local) WHERE estado = 'PENDIENTE'`.
 - Crea la vista `v_catalogo_disponible` (solo `eliminado = 0 AND disponible_visto = 1`).
 - Se puede correr sobre una base vacía sin errores.
@@ -67,10 +68,10 @@ PRAGMA foreign_keys;        -- esperado: 1
 PRAGMA integrity_check;     -- esperado: ok
 SELECT count(*) FROM sqlite_master
 WHERE type = 'table'
-  AND name IN ('snapshot_servidor','producto_cache','pedido_borrador','item_borrador','cola_sync');
--- esperado: 5
+  AND name IN ('snapshot_servidor','producto_cache','pedido_borrador','item_borrador','cola_sync','evaluacion_sync');
+-- esperado: 6
 SELECT name, strict FROM pragma_table_list WHERE schema = 'main' AND name NOT LIKE 'sqlite_%';
--- esperado: strict = 1 en las 5 tablas
+-- esperado: strict = 1 en las 6 tablas
 ```
 
 ---
@@ -100,13 +101,14 @@ SELECT DISTINCT capturado_en FROM snapshot_servidor;   -- fecha de la copia
 
 ---
 
-### [ ] Tarea 4: Pruebas SQLite (transacciones, C1 y C7)
+### [ ] Tarea 4: Pruebas SQLite (transacciones, subtotal, C1 y C7)
 
 **Archivo:** `movil/pruebas_sqlite.sql`  
 **Responsable:** Belén (Bloque A)  
-**Requisito relacionado:** REQ-04  
+**Requisito relacionado:** REQ-04 (C7) y REQ-05 (C1)  
 **Descripción:**
 - **Prueba 1 · Borrador completo con COMMIT:** `BEGIN;` → `pedido_borrador` + `item_borrador` + `cola_sync` → `COMMIT;`. UUIDs fijos: `aaaaaaaa-0000-4000-8000-000000000001` (borrador) y `bbbbbbbb-0000-4000-8000-000000000001` (solicitud). Verificar que quedó una fila en cada tabla.
+- **Prueba 1b · Consulta con subtotal:** subtotal por ítem (`cantidad * precio_centavos_visto`) y total del borrador, en centavos y en pesos (`/ 100.0`). El subtotal no se guarda. Esperado: 2 × 150000 = 300000 centavos = 3000.0 pesos.
 - **Prueba 2 · Operación deshecha con ROLLBACK:** `BEGIN;` → un **segundo borrador completo** (`aaaaaaaa-…-000000000002`, con su ítem y su solicitud) → `ROLLBACK;`. Verificar con `COUNT(*)` que las tres tablas quedaron igual que antes.
 - **Prueba 3 · C1 (catálogo sin servidor):** `SELECT * FROM v_catalogo_disponible;` sin ninguna conexión a PostgreSQL. Esperado: solo productos con `disponible_visto = 1` y `eliminado = 0`.
 - **Prueba 4 · C7 (datos inválidos):**
@@ -123,11 +125,11 @@ SELECT DISTINCT capturado_en FROM snapshot_servidor;   -- fecha de la copia
 
 ---
 
-### [ ] Tarea 5: Semáforo (evaluación de solicitudes PENDIENTE)
+### [ ] Tarea 5: Semáforo (evaluación de solicitudes PENDIENTE y registro)
 
 **Archivo:** `movil/semaforo.sql`  
 **Responsable:** Elías (Bloque B)  
-**Requisito relacionado:** REQ-01, REQ-02, REQ-03  
+**Requisito relacionado:** REQ-01, REQ-02, REQ-03, REQ-06  
 **Descripción:**
 - Toma solo las solicitudes con `estado = 'PENDIENTE'` en `cola_sync`.
 - Para cada una, `item_borrador LEFT JOIN snapshot_servidor` y agrupa por solicitud.
@@ -136,7 +138,7 @@ SELECT DISTINCT capturado_en FROM snapshot_servidor;   -- fecha de la copia
   2. **Amarillo (`CONFLICTO`):** no hay rojo AND `precio_centavos_visto <> precio_centavos`.
   3. **Verde (`SIMULADO_APROBADO`):** ni rojo ni amarillo.
 - Si hay rojo y amarillo en la misma solicitud, gana el rojo.
-- Actualiza `cola_sync` con estado y un `motivo` que diga qué producto y por qué.
+- Calcula el resultado una vez en una tabla temporal y, en la misma transacción, inserta una fila por solicitud en `evaluacion_sync` (con `capturado_en` de la instantánea) y actualiza `cola_sync` con estado y un `motivo` que diga qué producto y por qué.
 - No se conecta ni modifica nada en PostgreSQL.
 
 **Verificación:**
@@ -146,31 +148,33 @@ SELECT count(*) FROM cola_sync WHERE estado = 'PENDIENTE';   -- esperado: 0
 SELECT solicitud_uuid, estado, motivo FROM cola_sync;        -- estado y motivo legibles
 .read semaforo.sql                                           -- correrlo otra vez
 SELECT solicitud_uuid, estado, motivo FROM cola_sync;        -- esperado: exactamente lo mismo (REQ-03)
+SELECT count(*) FROM evaluacion_sync;                        -- esperado: igual que después de la primera corrida
 ```
 
 ---
 
 ### [ ] Tarea 6: Casos C2–C6 y consulta final
 
-**Archivo:** `postgresql/casos_servidor.sql` + salidas de cada caso  
+**Archivos:** `postgresql/casos_servidor.sql`, `movil/casos_sqlite.sql`, `postgresql/consulta_final.sql` + salidas de cada caso  
 **Responsable:** Hernán (Bloque C)  
-**Requisito relacionado:** REQ-01 (C2), REQ-02 (C3, C4), REQ-03 (C6); C5 es el caso verde  
+**Requisito relacionado:** REQ-01 (C2), REQ-02 (C3, C4), REQ-03 (C6), REQ-06 (C5)  
 **Descripción:**
 - Usa los **productos fijos** que eligió Elías en la Tarea 1.
 - **Antes de empezar:** consulta inicial en `bd2_tp8` (`SELECT count(*) FROM pedido;` y stock de los productos fijos).
 - Para cada caso:
   1. Crear el borrador en SQLite (transacción, UUIDs fijos).
-  2. Preparar el cambio en `bd2_tp8` si corresponde (C2: subir el precio; C4: `activo = false`). Estos cambios son preparación manual del caso, no parte de la simulación.
+  2. Preparar el cambio en `bd2_tp8` si corresponde (C2: subir el precio; C3: bajar el stock del producto 2 de 3 a 1, como una venta de otra tablet; C4: `activo = false`). Estos cambios son preparación manual del caso, no parte de la simulación.
   3. Exportar una instantánea nueva y correr `importar_catalogo.sql` (Tarea 3).
-  4. Correr `semaforo.sql` y mostrar `cola_sync`.
+  4. Correr `semaforo.sql` y mostrar `cola_sync` y `evaluacion_sync`.
   5. Escribir comando, resultado y 1–2 oraciones de explicación.
 - Detalles por caso:
   - **C2:** primero `CONFLICTO`; después el cliente acepta: `UPDATE item_borrador SET precio_centavos_visto = <nuevo>` y una **solicitud nueva** (otro UUID) → `SIMULADO_APROBADO`.
-  - **C3:** cantidad mayor que el stock → `RECHAZADO`; el stock del servidor no se toca.
+  - **C3:** el borrador pide 2 unidades del producto 2 (stock 3 en la instantánea inicial). En el servidor el stock baja a 1. Con la instantánea nueva → `RECHAZADO` `stock insuficiente: producto 2 (pide 2, hay 1)`. La simulación no toca el stock.
   - **C4:** `RECHAZADO`; el producto ya no aparece en `v_catalogo_disponible`, pero la fila sigue en `producto_cache` con `eliminado = 1`.
   - **C5:** sin cambios → `SIMULADO_APROBADO` (simulación, no venta).
-  - **C6:** reinsertar una solicitud con el mismo `solicitud_uuid` → error de clave primaria; volver a correr el semáforo no cambia su estado. Agregar la oración de la parada 8 (la protección real va en el servidor: clave única + misma transacción).
-- **Consulta final:** repetir la consulta inicial después de la simulación. Esperado: la cantidad de pedidos no cambió y el stock solo cambió donde se preparó a mano un caso (documentado).
+  - **C6** en tres partes: (a) volver a correr el semáforo no agrega filas en `evaluacion_sync`; (b) un `INSERT` común con el mismo `solicitud_uuid` da error de clave primaria; (c) el reenvío idempotente con `INSERT … ON CONFLICT (solicitud_uuid) DO NOTHING` inserta 0 filas y un `SELECT` devuelve el resultado guardado. Agregar la oración de la parada 8 (la protección real va en el servidor: clave única + misma transacción).
+- **Consulta con subtotal** de los borradores y, en C2, subtotal visto contra subtotal actual.
+- **Consulta final** (`postgresql/consulta_final.sql`, después de la simulación): esperado 200005 pedidos y stock 1, 40, 30, 0, 10, igual que el servidor ya preparado (paso 4 de `casos_servidor.sql`). Respecto del estado inicial (3, 40, 30, 0, 10) solo cambió el producto 2, por la preparación manual del C3.
 
 **Verificación:**
 - Cada caso tiene comando, resultado y explicación.
@@ -212,12 +216,14 @@ SELECT solicitud_uuid, estado, motivo FROM cola_sync;        -- esperado: exacta
 
 ## Matriz de trazabilidad
 
-| Tarea | Archivo | Responsable | REQ-01 | REQ-02 | REQ-03 | REQ-04 | Casos |
-|:---:|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | `postgresql/10_snapshot_catalogo.sql` | Elías | ✓ | ✓ | — | — | — |
-| 2 | `movil/schema_sqlite.sql` | Belén | — | — | ✓ | ✓ | C1, C7 |
-| 3 | `movil/importar_catalogo.sql` | Elías | — | ✓ | — | — | C4 |
-| 4 | `movil/pruebas_sqlite.sql` | Belén | — | — | — | ✓ | C1, C7 |
-| 5 | `movil/semaforo.sql` | Elías | ✓ | ✓ | ✓ | — | C2–C6 |
-| 6 | `postgresql/casos_servidor.sql` | Hernán | ✓ | ✓ | ✓ | — | C2–C6 |
-| 7 | `README.md` | Elías | — | — | — | — | — |
+| Tarea | Archivo | Responsable | REQ-01 | REQ-02 | REQ-03 | REQ-04 | REQ-05 | REQ-06 | Casos |
+|:---:|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 1 | `postgresql/10_snapshot_catalogo.sql` | Elías | ✓ | ✓ | — | — | — | ✓ | — |
+| 2 | `movil/schema_sqlite.sql` | Belén | — | — | ✓ | ✓ | ✓ | — | C1, C7 |
+| 3 | `movil/importar_catalogo.sql` | Elías | — | ✓ | — | — | ✓ | — | C4 |
+| 4 | `movil/pruebas_sqlite.sql` | Belén | — | — | — | ✓ | ✓ | — | C1, C7 |
+| 5 | `movil/semaforo.sql` | Elías | ✓ | ✓ | ✓ | — | — | ✓ | C2–C6 |
+| 6 | `casos_servidor.sql`, `casos_sqlite.sql`, `consulta_final.sql` | Hernán | ✓ | ✓ | ✓ | — | — | ✓ | C2–C6 |
+| 7 | `README.md` | Elías | — | — | — | — | — | — | — |
+
+Cobertura: C1 → REQ-05 · C2 → REQ-01 · C3, C4 → REQ-02 · C5 → REQ-06 · C6 → REQ-03 · C7 → REQ-04.
