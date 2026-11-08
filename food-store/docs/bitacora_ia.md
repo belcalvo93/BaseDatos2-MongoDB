@@ -204,3 +204,26 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 **Qué se descartó:** los tres archivos tal como los escribió Kiro (caracteres de control en lugar de comillas invertidas, bloques de código rotos y errores de contenido: C6 por captura de error en vez de `ON CONFLICT`, consulta final “sin cambios”, Prueba 1b asignada a REQ-05). Se rearmaron desde la versión de `main`, aplicando solo los cambios pedidos y tomando de Kiro la redacción de REQ-05 y REQ-06, la nota del C3 y la explicación de las dos tablas.
 
 **Cómo se comprobó:** se comprobó que no quedaran caracteres de control y que el `grep -c SHALL` diera 8.
+
+---
+
+## Entrada 13 · 07–08/11/2026 · Belén Calvo · Claude (chat)
+
+**Qué se pidió:** cerrar el resto de la corrección: rearmar la spec después de descartar la versión de Kiro (entrada 12), el inventario de scripts U1–U8, el 3.b con la U6 corregida, los dos `README.md` y el informe.
+
+**Qué se aceptó:**
+- La spec (`requirements.md`, `design.md`, `tasks.md`) rearmada desde la versión de `main`, con REQ-05 y REQ-06, `evaluacion_sync`, las decisiones 4.6 (subtotal) y 4.7 (reenvío idempotente) y la matriz REQ-01 a REQ-06.
+- `docs/inventario_scripts_u1_u8.md`: 56 scripts de los dos repos, con qué hace cada uno, dónde se corre y su hallazgo del 3.c.
+- El 3.b con la U6 corregida (huella de 11 claves, SHA256, autorización escrita, 8 indicadores, RTO 4,21 s y RPO 19 s).
+- Los `README.md` con la sección del TP8 y los pasos y valores nuevos, y el informe con un cuadro de las correcciones pedidas.
+
+**Qué se corrigió:**
+- La spec y el informe decían `disponible = activo AND stock > 0`; la vista real también mira `categoria.activo` (entrada 6). Se alinearon con el script.
+- El 3.b decía "respaldo diario **automatizado**", pero el respaldo se corre a mano. Se cambió y se dejó programarlo como mejora.
+- La frase del README de la raíz sobre la etiqueta `archivo-tps-sql`: esa etiqueta tiene solo los TP 1 a 3; los TP 1 a 6 completos están en `base-datos-2`.
+- En el inventario, Claude contó primero 59 scripts; un script que compara la lista contra `git ls-files` dio 56 y se corrigió.
+
+**Qué se descartó:** marcar como "revisados" en el inventario los scripts que no tienen hallazgo en la tabla del 3.c. Figuran con "—" porque no hay registro de su revisión.
+
+**Cómo se comprobó:** corrida completa desde cero en mi PC siguiendo el `README.md` (`dropdb` y `createdb` de `bd2_tp8`): instantánea con 50011 filas y 10048 lápidas; pruebas con solo los 2 errores esperados; casos con C2 `CONFLICTO` y luego `SIMULADO_APROBADO`, C3 `RECHAZADO (pide 2, hay 1)`, C4 `RECHAZADO`, C5 `SIMULADO_APROBADO`, C6 con 5 evaluaciones antes y después del semáforo, un solo error esperado (PK) y el reenvío que devuelve el resultado guardado; consulta final con 200005 pedidos y stock 1 · 40 · 30 · 0 · 10. Evidencias regeneradas en `evidencias/`. El informe se generó con Edge: 4 páginas.
+
