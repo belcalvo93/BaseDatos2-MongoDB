@@ -5,6 +5,8 @@ Repositorio de los TP 7 (MongoDB) y TP 8 (SQLite). Los TP 1 a 6 completos están
 
 **Integrantes:** Bruno Fiouchetta, Elías Tello, Belén Calvo, Hernán González
 
+**TPI Parcial II:** índice de los 14 objetivos con su evidencia en [matriz_objetivos.md](https://github.com/belcalvo93/base-datos-2/blob/main/docs/tpi_parcial2/matriz_objetivos.md) (repositorio relacional).
+
 ## TP 7 — Migración de pedidos de PostgreSQL a MongoDB
 
 Se migraron 8 pedidos de `bd2_tp3` (30 líneas) a la colección `foodstore.pedidos`, con cliente y líneas embebidos, `_id` = `id_pedido` y montos en `Decimal128`.
