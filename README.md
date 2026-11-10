@@ -5,7 +5,7 @@ Repositorio de los TP 7 (MongoDB) y TP 8 (SQLite). Los TP 1 a 6 completos están
 
 **Integrantes:** Bruno Fiouchetta, Elías Tello, Belén Calvo, Hernán González
 
-**TPI Parcial II:** índice de los 14 objetivos con su evidencia en [matriz_objetivos.md](https://github.com/belcalvo93/base-datos-2/blob/main/docs/tpi_parcial2/matriz_objetivos.md) (repositorio relacional).
+**TPI Parcial II:** índice de los 14 objetivos con su evidencia en [matriz_objetivos.md](https://github.com/belcalvo93/base-datos-2/blob/main/docs/tpi_parcial2/matriz_objetivos.md) (repositorio relacional). La DUIA ([DUIA_tpi.md](https://github.com/belcalvo93/base-datos-2/blob/main/docs/tpi_parcial2/DUIA_tpi.md)), la bitácora ([bitacora_ia_tpi.md](https://github.com/belcalvo93/base-datos-2/blob/main/docs/tpi_parcial2/bitacora_ia_tpi.md)) y los informes de revisión por unidad ([review/](https://github.com/belcalvo93/base-datos-2/tree/main/docs/tpi_parcial2/review)) del TPI están solo en ese repositorio.
 
 ## TP 7 — Migración de pedidos de PostgreSQL a MongoDB
 
