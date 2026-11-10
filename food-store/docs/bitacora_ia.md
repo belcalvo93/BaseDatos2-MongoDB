@@ -227,3 +227,37 @@ Formato: fecha · quién · herramienta · qué se pidió · qué se aceptó · 
 
 **Cómo se comprobó:** corrida completa desde cero en mi PC siguiendo el `README.md` (`dropdb` y `createdb` de `bd2_tp8`): instantánea con 50011 filas y 10048 lápidas; pruebas con solo los 2 errores esperados; casos con C2 `CONFLICTO` y luego `SIMULADO_APROBADO`, C3 `RECHAZADO (pide 2, hay 1)`, C4 `RECHAZADO`, C5 `SIMULADO_APROBADO`, C6 con 5 evaluaciones antes y después del semáforo, un solo error esperado (PK) y el reenvío que devuelve el resultado guardado; consulta final con 200005 pedidos y stock 1 · 40 · 30 · 0 · 10. Evidencias regeneradas en `evidencias/`. El informe se generó con Edge: 4 páginas.
 
+---
+
+## Entrada 14 · 01/11/2026 · Elías Tello · Claude Code
+
+**Qué se pidió:** armar el informe del TP8 para entregar (PR #10): leer la consigna (1.a, 2.c, 3.a, 3.b y 3.c, máximo 6 páginas), resumir en un solo documento los cuatro `.md` del grupo (`1a_datos_que_viajan.md` de Belén, `2c_casos_y_3a_mapa.md` de Hernán, `3b_plan_mantenimiento.md` y `3c_code_review_ia.md` de Bruno), maquetarlo en `food-store/docs/informe.html` con el estilo del informe del TP7 y convertirlo a PDF con Edge sin interfaz. Claude Code propuso un plan y Elías lo aprobó antes de que se escribiera nada.
+
+**En qué ayudó la IA:** en resumir cuatro documentos largos en 4 páginas sin perder lo que pide la consigna, en maquetar tablas y recuadros, y en generar el PDF con números de página. Las decisiones de contenido son de cada autor; la IA no agregó resultados nuevos.
+
+**Qué se aceptó:** la estructura (encabezado con integrantes, repositorio y regla de oro, y después 1.a, 2.c, 3.a, 3.b y 3.c); en 2.c, la tabla de productos fijos, la tabla de C2 a C6 con comando, resultado y explicación, el recuadro del C6 y la consulta final antes y después; en 3.a, la tabla de los tres motores y el recorrido del dato; en 3.c, la tabla de 11 hallazgos y tres desarrollados (U7 descartado, U6 corregido y U8 descartado). Resultado: 4 páginas.
+
+**Qué se corrigió:**
+- En 1.a, la tabla decía que la baja dependía solo de `producto.activo`. La vista `v_snapshot_movil` la marca por producto **o** por categoría (Congelados está dada de baja: 10.048 lápidas), así que se agregó `categoria.activo`.
+- En el Desarrollo 3 (U8), el `.md` decía que «900.00» quedaba después de «1500.00». Con los valores reales de `pruebas_sqlite.sql` (150000 y 89900 centavos), lo correcto es «899.00».
+- La primera conversión a PDF falló (`ERR_TOO_MANY_REDIRECTS`, según el registro de la sesión de trabajo; no deja rastro en el repositorio) por la ruta con espacios y barras invertidas. Se resolvió pasando a Edge una URL `file:///` con `%20`.
+
+**Qué se descartó:** desarrollar en 3.c el hallazgo de U5/U3 (revocar `INSERT`/`UPDATE` directo sobre `pedido` y bloquear el reseteo de `ADMIN`), que el `.md` de Bruno proponía como tercer desarrollo. Sus pruebas (`SET ROLE app_web`, etc.) no se pudieron verificar desde esta sesión, así que se eligieron U7 y U8, comprobados en el TP7 y el TP8, y U6, con evidencia en el repositorio del TP6. El hallazgo quedó en la tabla de 11 como «Corregido», pero no se desarrolló.
+
+**Cómo se comprobó:** los resultados de C2 a C6 y la consulta final se cotejaron con `food-store/evidencias/salida_casos_c2_c6_sqlite.txt` y `food-store/evidencias/salida_casos_servidor_postgresql.txt` (CONFLICTO con su motivo, RECHAZADO por stock y por baja del producto 11, SIMULADO_APROBADO, el error de unicidad del C6 y 200005 pedidos antes y después; stock 3·40·30·0·10 sin cambios). Se contaron las páginas del PDF y se lo leyó completo, para confirmar que no quedara nada cortado.
+
+**Motivo de la herramienta:** se eligió Claude Code por rendimiento y estabilidad, como se declara en la DUIA (sección 3). Para este informe no se probó OpenCode.
+
+---
+
+## Entrada 15 · 10/11/2026 · Elías Tello · Claude Code
+
+**Qué se pidió:** revisar, antes de commitearlas, la entrada 14 y las filas nuevas de la DUIA que declaran el informe del TP8, contrastando cada afirmación con lo que quedó en el commit del PR #10 (`d913476`): el informe, `food-store/movil/pruebas_sqlite.sql` y las evidencias de esa fecha. Primero se intentó con OpenCode (agente Plan), pero dio errores repetidos y no llegó a responder; por eso la revisión se hizo con Claude Code.
+
+**Qué se aceptó:** se sostienen la fecha (01/11 a las 23:55, hora de Argentina; GitHub muestra 02/11 porque usa UTC), las 4 páginas del PDF, la corrección de 1.a con `categoria.activo`, el valor 899.00 (150000 y 89900 centavos en `pruebas_sqlite.sql`), los 11 hallazgos de 3.c con los desarrollos de U7, U6 y U8, el hallazgo de U3–U5 marcado «Corregido» sin desarrollar, y los resultados de C2 a C6: «pide 5, hay 3» para el stock, baja del producto 11, error de unicidad del C6, 200005 pedidos, stock 3·40·30·0·10 y precio del producto 3 de 1400.00 a 1600.00.
+
+**Qué se corrigió:** las rutas de las evidencias. Decían `evidencias/…`, que en este repositorio es la carpeta del TP7; las del TP8 están en `food-store/evidencias/`.
+
+**Qué se descartó:** dos datos que ofrecía la sesión que armó el informe: 1) poner la fecha que muestra GitHub (02/11), porque está en UTC y el trabajo fue el 01/11 en hora local; 2) mencionar que 3.c cita la «rama review-final», porque nadie pudo verificarlo. La falla de la primera conversión a PDF se dejó, aclarando que sale del registro de la sesión y no del repositorio.
+
+**Cómo se comprobó:** con `git show d913476:` sobre `food-store/docs/informe.html`, `informe.pdf` (4 páginas contadas con `pypdf`), `food-store/movil/pruebas_sqlite.sql` y `food-store/evidencias/salida_casos_c2_c6_sqlite.txt` y `salida_casos_servidor_postgresql.txt`, tal como estaban ese día. Las evidencias actuales cambiaron con la corrección del profesor (PR #12), así que no sirven para esta comprobación.
